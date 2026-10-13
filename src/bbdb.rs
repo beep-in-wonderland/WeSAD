@@ -1,3 +1,3 @@
-use sqlite;
+use crate::sqlite;
 
 fn init() {}
