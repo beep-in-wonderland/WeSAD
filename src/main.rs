@@ -80,7 +80,10 @@ pub struct CLIArgs {
 
 fn main() {
 
-    let mut cli_args = parse_cli_args().unwrap();
+    // Allow the CLI args to be mutable in case these require adjustment during runtime 
+    // via user input.
+    let mut cli_args = parse_cli_args().unwrap(); 
+
     let is_dev_build: bool = check_dev_build().unwrap();
     let paths: ProgramPaths = ProgramPaths::init(is_dev_build);
     init_logger(&cli_args.log_level, paths.log);
@@ -88,6 +91,9 @@ fn main() {
 
 
     // read, validate, and store configs (bbconf.rs)
+
+
+
     // init & check connection to persist db (bbdb.rs)
     //      validate data within persist db (bbdb.rs)
     // test connections to 
