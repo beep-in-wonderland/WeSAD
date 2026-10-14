@@ -3,7 +3,6 @@ use std::fs::{exists, File};
 use std::path::{Path, PathBuf};
 use std::env::current_dir;
 use std::env::args;
-use std::range;
 use std::str::FromStr;
 
 // all crates for the project
@@ -18,13 +17,12 @@ use fern;
 use chrono;
 
 
-use log::{LevelFilter,info,warn,debug,error,Level};
+use log::{info,warn,debug,error,Level};
 
 
 // separate custom modules
-mod bbdb; // Database management module using SQLite3
+mod database; // Database management module using SQLite3
 mod bbnd;
-mod bbconf;
 mod discord;
 mod smtp;
 mod errors;
@@ -74,7 +72,15 @@ impl ProgramPaths {
 
 // Public struct to hold all args passed during CLI initialization of the service.
 pub struct CLIArgs {
-    log_level: Level,
+    log_level : Level,
+}
+
+impl Default for CLIArgs {
+    fn default() -> Self {
+        Self {
+            log_level : Level::Warn,
+        }
+    }
 }
 
 
@@ -142,21 +148,22 @@ fn check_dev_build() -> Result<bool, errors::Error> {
 
 
 fn parse_cli_args() -> Result<CLIArgs, errors::Error> {
-    let mut log_level: Level = Level::Warn;  
+    
+    let mut cli_args = CLIArgs::default();
 
     let args: Vec<String> = args().collect();
 
     // Main argument loop - iterating in keyword pairs
     for i in (1 .. args.len()).step_by(2) {
+        dbg!(&args[i], &args[i+1]);
         if args[i] == "-l"
             || args[i] == "--log-level"{
-            log_level = log::Level::from_str(&args[i+1]).unwrap();
+            cli_args.log_level = log::Level::from_str(&args[i+1])
+                .expect("Error - Invalid Log Level. Please select from ERROR, WARN, INFO, DEBUG");
         }
     }
 
-    Ok(CLIArgs {
-        log_level,
-    })
+    Ok(cli_args)
 }
 
 
