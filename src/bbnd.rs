@@ -12,13 +12,18 @@ use crate::json;
 use chrono::NaiveDate;
 
 
-fn create_bbnd() {}
+enum WebhookType {
+    STATUS,
+    ALERT,
+}
 
 
 pub struct WebhookDescriptor {
-    webhook_url : String,
-    cron_descriptor: CronDescriptor,
-    data: Vec<String>,
+    pub webhook_name : String,
+    pub webhook_url : String,
+    pub webhook_type: WebhookType,
+    pub cron_descriptor : CronDescriptor,
+    pub placeholders: Vec<String>,
 }
 
 
@@ -28,6 +33,12 @@ pub struct CronDescriptor {
     days : String,
     next_execution : NaiveDate,
     last_execution : NaiveDate,
+}
+
+impl CronDescriptor {
+    pub fn as_str(&self) -> String {
+        format!("{} {} {}", self.minutes, self.minutes, self.days)
+    }
 }
 
 
@@ -56,6 +67,8 @@ impl BBDaemon {
         self.db = Some(database::Session::init(&self.paths).expect("An unexpected error occurred initializing the database."));
         
         
+        // Read configs
+
         // validate data within persist db (bbdb.rs)
         // test connections to 
         //      SMTP (smtp.rs)
