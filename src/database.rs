@@ -8,6 +8,7 @@ use crate::PathBuf;
 use crate::ProgramPaths;
 use crate::sqlite;
 use crate::errors;
+use crate::{info,error,debug,warn};
 
 const TAB_WEBHOOKS: &str = "webhooks";
 const COL_WEBHOOK_NAME: &str = "webhook";
@@ -56,12 +57,16 @@ impl Session {
 
 
     pub fn add_webhook_parent(&self, webhook: &WebhookDescriptor) -> Result<(), errors::Error> {
-        let query = format!("INSERT INTO {TAB_WEBHOOKS} ({COL_WEBHOOK_NAME}, {COL_WEBHOOK_URL}) VALUES (:name, :url)");
+
+        let query = format!("INSERT INTO 
+                {TAB_WEBHOOKS} ({COL_WEBHOOK_NAME}, {COL_WEBHOOK_URL}, {COL_CRON_STRING}) 
+                VALUES (:name, :url, :cron)");
+
         let mut statement = self.connection.as_ref().unwrap().prepare(query).unwrap();
 
         statement.bind::<&[(_, sqlite::Value)]>(&[
-            (":name", webhook.webhook_name.into()),
-            (":url", webhook.webhook_url.into()),
+            (":name", webhook.webhook_name.clone().into()),
+            (":url", webhook.webhook_url.clone().into()),
             (":cron", webhook.cron_descriptor.as_str().into())
         ])?;
 
@@ -76,6 +81,8 @@ impl Session {
 
 fn init_db_from_existing(db_path: &PathBuf) -> Result<Connection, errors::Error> {
         let connection = sqlite::Connection::open(db_path).unwrap();
+
+        validate_existing_schema(&connection)?;
 
         Ok(connection)
 }
@@ -94,12 +101,15 @@ fn init_db_from_fresh(db_path: &PathBuf) -> Result<Connection, errors::Error> {
 
 
 fn create_webhook_parent_table(connection: &Connection) -> Result<(), errors::Error>{
-    let query = format!("CREATE TABLE IF NOT EXISTS {TAB_WEBHOOKS} (
+    debug!("Creating webhook parent table");
+    let query = format!("CREATE TABLE IF NOT EXISTS {TAB_WEBHOOKS} 
+                            (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             {COL_WEBHOOK_NAME} VARCHAR(20),
                             {COL_WEBHOOK_URL} VARCHAR(150),
-                            {COL_CRON_STRING} VARCHAR(20),
-                            )");
+                            {COL_CRON_STRING} VARCHAR(20)
+                            )
+                        ");
 
     connection.execute(query)?;
 
@@ -108,15 +118,26 @@ fn create_webhook_parent_table(connection: &Connection) -> Result<(), errors::Er
 
 
 fn create_placeholder_table(connection: &Connection) -> Result<(), errors::Error>{
+    debug!("Creating webhook placeholder table");
     let query = format!("CREATE TABLE IF NOT EXISTS {TAB_PLACEHOLDERS} (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             {COL_WEBHOOK_NAME} VARCHAR(20),
                             {COL_WEBHOOK_PLACEHOLDER} VARCHAR(40),
-                            {COL_WEBHOOK_PLACEHOLDER_VALUE} VARCHAR(10),
-                            )");
+                            {COL_WEBHOOK_PLACEHOLDER_VALUE} VARCHAR(10)
+                            )
+                        ");
 
     connection.execute(query)?;
 
     Ok(())
 }
 
+
+fn validate_existing_schema(connection: &Connection) -> Result<(), errors::Error> {
+
+    // TODO implement table validation for columns once final architecture is built
+    // If pass, return Ok(())
+    // If fail, BbdbUnreadable() error
+
+    Ok(())
+}

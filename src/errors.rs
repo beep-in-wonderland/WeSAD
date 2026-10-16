@@ -20,6 +20,12 @@ pub enum Error {
     #[error("sqlite failed: {0}")]
     SqliteErr(#[from] sqliteError),
 
+    #[error("std io error: {0}")]
+    StdIoErr(#[from] std::io::Error),
+
+    #[error("regex error: {0}")]
+    RegexErr(#[from] regex::Error),
+    
     #[error("bbdb unreadable")]
     BbdbUnreadable(ErrorObj),
 

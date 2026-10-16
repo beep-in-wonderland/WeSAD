@@ -15,7 +15,7 @@ use json; // parsing config files
 use thiserror;
 use fern;
 use chrono;
-
+use regex;
 
 use log::{info,warn,debug,error,Level};
 
@@ -164,8 +164,6 @@ fn init_logger(log_level: &Level, log_path: &PathBuf) {
 
     let log_path: &PathBuf = &log_path.join("bbnd.log");
     if !exists(log_path).unwrap() {
-        dbg!("File not found");
-        dbg!(log_path);
         let _ = File::create_new(log_path);
     };
 
@@ -184,6 +182,6 @@ fn init_logger(log_level: &Level, log_path: &PathBuf) {
         .apply()
         .unwrap();
 
-    log::debug!("Logger initialized")
+    debug!("Logger initialized")
 }
 

@@ -1,7 +1,12 @@
+use std::fs::read_dir;
+use std::path::Display;
+use std::path::PathBuf;
+
 use crate::ProgramPaths;
 use crate::tokio;
 use crate::dbus;
 use crate::daemonize;
+use crate::regex;
 
 use crate::discord;
 use crate::smtp;
@@ -10,6 +15,9 @@ use crate::errors;
 
 use crate::json;
 use chrono::NaiveDate;
+
+
+const PATH_WEBHOOKS_ETC: &str = "bbnd/webhooks.d";
 
 
 enum WebhookType {
@@ -25,6 +33,7 @@ pub struct WebhookDescriptor {
     pub cron_descriptor : CronDescriptor,
     pub placeholders: Vec<String>,
 }
+
 
 
 pub struct CronDescriptor {
@@ -55,7 +64,7 @@ impl BBDaemon {
         Ok (Self {
             paths,
             db : None,
-            webhooks : None,
+            webhooks : Vec::new(),
         })
 
         
@@ -66,8 +75,11 @@ impl BBDaemon {
         // Initialize connection persistent local data storage
         self.db = Some(database::Session::init(&self.paths).expect("An unexpected error occurred initializing the database."));
         
-        
+        self.read_webhook_configs()?;
+
         // Read configs
+
+
 
         // validate data within persist db (bbdb.rs)
         // test connections to 
@@ -86,4 +98,44 @@ impl BBDaemon {
 
 
     }
+
+
+    fn read_webhook_configs(&mut self) -> Result<(), errors::Error> {
+
+        let webhooks = read_dir(&self.paths.etc.join(PATH_WEBHOOKS_ETC))?;
+        let mut webhook_path: String;
+
+        let regex_conf = regex::Regex::new(".conf$")?;
+
+        for webhook in webhooks {
+            webhook_path = webhook.unwrap().path().display().to_string();
+            
+            
+            // If the current file is a webhook .conf file
+            if !(regex_conf.captures(&webhook_path).is_none()) {
+                // Parse the conf file, i.e. the placeholders
+                self.webhooks.as_ref().unwrap();
+
+                parse_webhook_config(self.db.as_ref().unwrap(), &webhook_path);
+
+            }
+
+        }
+
+        Ok(())
+    }
+
+
 }
+
+
+fn parse_webhook_config(db: &database::Session, webhook_path: &String) -> Result<WebhookDescriptor, errors::Error> {
+    // Do the conf stuff
+    // etc etc etc...
+
+
+    // If a conf file was found, there must be an associated .json file with the same name
+    let json_path = &PathBuf::from(format!("{webhook_path}.json"));
+
+}
+
