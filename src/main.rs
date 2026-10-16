@@ -61,6 +61,10 @@ impl ProgramPaths {
             }
         }
 
+        debug!("Log path: {0}", log.display());
+        debug!("Persist path: {0}", persist.display());
+        debug!("Etc path: {0}", etc.display());
+        
 
         Self { 
             log, 
@@ -90,30 +94,19 @@ fn main() {
     // via user input.
     let mut cli_args = parse_cli_args().unwrap(); 
 
+    // Important runtime variables
     let is_dev_build: bool = check_dev_build().unwrap();
     let paths: ProgramPaths = ProgramPaths::init(is_dev_build);
-    init_logger(&cli_args.log_level, paths.log);
+
+    // Initialize the logger
+    init_logger(&cli_args.log_level, &paths.log);
 
 
+    // Initialize the daemon
+    let mut daemon = bbnd::BBDaemon::init(paths).expect("An unexpected error occurred initializing the daemon.");
 
-    // read, validate, and store configs (bbconf.rs)
-
-
-
-    // init & check connection to persist db (bbdb.rs)
-    //      validate data within persist db (bbdb.rs)
-    // test connections to 
-    //      SMTP (smtp.rs)
-    //      Discord webhooks (discord.rs) 
-
-    // initialize daemon with validated data
-    //      daemon publishes to session D-Bus
-    
-    // external scripts use dbus method calls to send updates
-    //      bbnd updates the stored data in the database
-    // on set cron intervals as defined in bbnd.d/myfile.conf, the daemon
-    //   will publish updates to the webhooks and/or send emails 
-
+    // Run the daemon
+    daemon.run();
 
 }
 
@@ -167,7 +160,7 @@ fn parse_cli_args() -> Result<CLIArgs, errors::Error> {
 }
 
 
-fn init_logger(log_level: &Level, log_path: PathBuf) {
+fn init_logger(log_level: &Level, log_path: &PathBuf) {
 
     let log_path: &PathBuf = &log_path.join("bbnd.log");
     if !exists(log_path).unwrap() {
@@ -193,5 +186,4 @@ fn init_logger(log_level: &Level, log_path: PathBuf) {
 
     log::debug!("Logger initialized")
 }
-
 

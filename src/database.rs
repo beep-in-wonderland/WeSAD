@@ -12,45 +12,48 @@ enum BbdbLocations {
     None,
 }
 
-struct Session {
+pub struct Session {
     connection : sqlite::Connection,
 }
 
 
 impl Session {
 
-    // /// Check for existing bbdb.db file and create a new one if none is found.
-    // fn init(&self, paths: ProgramPaths) -> Result<Self, crate::errors::Error> {
+    /// Check for existing `bbdb.db` file and create a new one if none is found. This 
+    /// function does not perform any validation on the database contents. It only
+    /// establishes the connection and returns the object through which the database
+    /// can be accessed.
+    pub fn init(paths: &ProgramPaths) -> Result<Self, crate::errors::Error> {
 
-    //     let db_path: &PathBuf = &paths.persist.join("bbnd.db");
-    //     let connection: sqlite::Connection ;
+        let db_path: &PathBuf = &paths.persist.join("bbnd.db");
+        let connection: sqlite::Connection ;
 
-    //     if exists(db_path).unwrap() {
-    //         connection = self._init_from_existing(db_path).unwrap();
-    //     } else {
+        if exists(db_path).unwrap() {
+            connection = Session::_init_from_existing(db_path).unwrap();
+        } else {
 
-    //         connection = self._init_from_fresh(db_path).unwrap();
-    //     }
+            connection = Session::_init_from_fresh(db_path).unwrap();
+        }
 
         
-    //     Ok(Session { 
-    //         connection : connection,
-    //      })
-    // }
-
-    // TODO: Write in DB initialization logic depending on requirements as parsed by the config
-
-    // fn _init_from_fresh(&self, db_path: &PathBuf) -> Result<sqlite::Connection, errors::Error> {
-
-    //     let db_file = File::create_new(db_path).unwrap(); 
-
-    //     Ok(sqlite::Connection::open())
-    // }
+        Ok(Session { 
+            connection : connection,
+         })
+    }
 
 
-    // fn _init_from_existing(&self, db_path: &PathBuf) -> Result<sqlite::Connection, errors::Error> {
+    fn _init_from_fresh(db_path: &PathBuf) -> Result<sqlite::Connection, errors::Error> {
 
-    //     Ok(sqlite::Connection::open())
-    // }
+        let _ = File::create_new(db_path).unwrap(); 
+
+        Ok(sqlite::Connection::open(db_path)?)
+    }
+
+
+    fn _init_from_existing(db_path: &PathBuf) -> Result<sqlite::Connection, errors::Error> {
+
+        Ok(sqlite::Connection::open(db_path)?)
+    }
+    
 
 }
