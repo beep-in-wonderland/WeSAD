@@ -25,6 +25,9 @@ pub enum Error {
 
     #[error("regex error: {0}")]
     RegexErr(#[from] regex::Error),
+
+    #[error("Json error: {0}")]
+    JsonErr(#[from] json::Error),
     
     #[error("bbdb unreadable")]
     BbdbUnreadable(ErrorObj),

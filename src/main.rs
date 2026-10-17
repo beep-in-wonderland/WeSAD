@@ -1,5 +1,6 @@
 // standard library imports
 use std::fs::{exists, File};
+use std::fs::read_dir;
 use std::path::{Path, PathBuf};
 use std::env::current_dir;
 use std::env::args;

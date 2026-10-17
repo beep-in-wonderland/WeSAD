@@ -1,6 +1,8 @@
-use std::fs::read_dir;
-use std::path::Display;
-use std::path::PathBuf;
+use std::io::Read;
+
+use crate::read_dir;
+use crate::PathBuf;
+use crate::File;
 
 use crate::ProgramPaths;
 use crate::tokio;
@@ -19,6 +21,13 @@ use chrono::NaiveDate;
 
 const PATH_WEBHOOKS_ETC: &str = "bbnd/webhooks.d";
 
+/// Regex capture which will split a fully qualified file path with extension into three non-overlapping captures:
+/// example: ``/this/is/my/file.conf``
+/// `dir = /this/is/my/`
+/// `name = file`
+/// `ext = .conf`
+const REGEX_CONF: &str = "(?<dir>^[\\\\0-9a-zA-Z_\\- ]+\\\\(?!\\\\[0-9a-zA-Z_\\- ]+\\.))(?<name>[0-9a-zA-Z_\\-. ]+)(?<ext>\\.conf)$";
+
 
 enum WebhookType {
     STATUS,
@@ -34,6 +43,18 @@ pub struct WebhookDescriptor {
     pub placeholders: Vec<String>,
 }
 
+
+struct WebhookConfigContents {
+    webhook_name : String,
+    webhook_url : String,
+    webhook_type: WebhookType,
+    cron_descriptor : CronDescriptor,
+}
+
+
+struct WebhookJsonPlaceholders {
+    placeholders : Vec<String>,
+}
 
 
 pub struct CronDescriptor {
@@ -64,18 +85,18 @@ impl BBDaemon {
         Ok (Self {
             paths,
             db : None,
-            webhooks : Vec::new(),
+            webhooks : None,
         })
 
         
     }
 
-    pub fn run(&mut self) {
+    pub fn run(&mut self) -> Result<(), errors::Error> {
 
         // Initialize connection persistent local data storage
         self.db = Some(database::Session::init(&self.paths).expect("An unexpected error occurred initializing the database."));
         
-        self.read_webhook_configs()?;
+        self.parse_all_webhook_configs()?;
 
         // Read configs
 
@@ -96,27 +117,53 @@ impl BBDaemon {
         // on set cron intervals as defined in bbnd.d/myfile.conf, the daemon
         //   will publish updates to the webhooks and/or send emails 
 
-
+        Ok (())
     }
 
 
-    fn read_webhook_configs(&mut self) -> Result<(), errors::Error> {
+    /// Spawns a thread that continuously updates embeds based on cron intervals
+    /// and current database information
+    fn update() -> Result<(), errors::Error> {
+        Ok(())
+    }
+
+    
+    /// Spawns a thread that continuously listens for updates via user D-BUS in 
+    /// order to update database based on external signals
+    fn listen() -> Result<(), errors::Error> {
+        Ok(())
+    }
+
+
+    fn parse_all_webhook_configs(&mut self) -> Result<(), errors::Error> {
 
         let webhooks = read_dir(&self.paths.etc.join(PATH_WEBHOOKS_ETC))?;
-        let mut webhook_path: String;
+        let mut webhook_path: PathBuf;
 
-        let regex_conf = regex::Regex::new(".conf$")?;
+        let regex_conf = regex::Regex::new(REGEX_CONF)?;
+        let mut captures: Option<regex::Captures>;
+        let mut path: String;
+        let mut name: String;
+
+        let mut webhook_config: WebhookConfigContents;
+        let mut webhook_placeholders: WebhookJsonPlaceholders;
+
 
         for webhook in webhooks {
-            webhook_path = webhook.unwrap().path().display().to_string();
-            
-            
-            // If the current file is a webhook .conf file
-            if !(regex_conf.captures(&webhook_path).is_none()) {
-                // Parse the conf file, i.e. the placeholders
-                self.webhooks.as_ref().unwrap();
+            webhook_path = webhook.unwrap().path();
 
-                parse_webhook_config(self.db.as_ref().unwrap(), &webhook_path);
+            let target_string = webhook_path.display().to_string();
+            captures = regex_conf.captures(&target_string);
+            
+            // If the regex found any captures
+            if !captures.is_none() {
+                // Extract the path & filename from the regex capture group
+                path = captures.as_ref().unwrap().get(1).map_or("", |s| s.as_str()).to_string();
+                name = captures.as_ref().unwrap().get(2).map_or("", |s| s.as_str()).to_string();
+
+
+                webhook_config = parse_webhook_config(&path, &name)?;
+                webhook_placeholders = parse_webhook_json_placeholders(&path, &name)?;
 
             }
 
@@ -126,16 +173,32 @@ impl BBDaemon {
     }
 
 
+
 }
 
 
-fn parse_webhook_config(db: &database::Session, webhook_path: &String) -> Result<WebhookDescriptor, errors::Error> {
-    // Do the conf stuff
-    // etc etc etc...
+fn parse_webhook_config(path: &String, name: &String) -> Result<WebhookConfigContents, errors::Error> {
+
+    let mut webhook_url: String;
+    let mut webhook_type: String;
+    let mut webhook_url: CronDescriptor;
 
 
-    // If a conf file was found, there must be an associated .json file with the same name
-    let json_path = &PathBuf::from(format!("{webhook_path}.json"));
 
+    Ok(WebhookConfigContents { 
+        webhook_url, 
+        webhook_type, 
+        cron_descriptor, 
+    })
+}
+
+
+fn parse_webhook_json_placeholders(path: &String, name: &String) -> Result<WebhookJsonPlaceholders, errors::Error> {
+
+    let mut placeholders = Vec::new();
+
+    Ok(WebhookJsonPlaceholders {
+        placeholders,
+    })
 }
 
