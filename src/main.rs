@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::env::current_dir;
 use std::env::args;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc,Mutex};
 
 // all crates for the project
 use tokio; // task scheduling
@@ -18,6 +18,7 @@ use thiserror;
 use fern;
 use chrono;
 use fancy_regex;
+use mutex;
 
 use log::{info,warn,debug,error,Level};
 
@@ -102,7 +103,6 @@ fn main() -> Result<(), errors::Error> {
 
     // Initialize the logger
     init_logger(&cli_args.log_level, &paths.log);
-    debug!("test");
 
     // Initialize the daemon
     let mut daemon = bbnd::BBDaemon::init(paths).expect("An unexpected error occurred initializing the daemon.");

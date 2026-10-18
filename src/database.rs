@@ -43,17 +43,12 @@ impl Session {
         let mut new_session = Self { connection : None };
 
         let db_path: &PathBuf = &paths.persist.join("bbnd.db");
-        let connection: sqlite::Connection ;
 
         if exists(db_path).unwrap() {
             new_session.connection = Some(init_db_from_existing(db_path).unwrap());
         } else {
             new_session.connection = Some(init_db_from_fresh(db_path).unwrap());
         }
-
-        // new_session.insert_webhook_parent("test hook", "myurl")?;
-
-
         Ok(new_session)
     }
 
@@ -66,12 +61,14 @@ impl Session {
 
         let mut statement = self.connection.as_ref().unwrap().prepare(query).unwrap();
 
+        let w = webhook.inner.lock().expect("poisoned");
+
         statement.bind::<&[(_, sqlite::Value)]>(&[
-            (":name", webhook.name.clone().into()),
-            (":url", webhook.url.clone().into()),
-            (":type", webhook.webhook_type.clone().to_string().into()),
-            (":interval", webhook.interval.as_str().into()),
-            (":period", webhook.period.into()),
+            (":name", w.name.clone().into()),
+            (":url", w.url.clone().into()),
+            (":type", w.webhook_type.clone().to_string().into()),
+            (":interval", w.interval.as_str().into()),
+            (":period", w.period.into()),
         ])?;
 
         statement.next()?;

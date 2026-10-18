@@ -15,12 +15,11 @@ use crate::tokio;
 use crate::dbus;
 use crate::daemonize;
 use crate::fancy_regex::Regex;
-use crate::Arc;
+use crate::{Arc,Mutex};
+use crate::mutex;
+use crate::{info,error,debug,warn};
 
-use crate::discord;
-use crate::smtp;
-use crate::database;
-use crate::errors;
+use crate::{discord, smtp, database, errors};
 
 use crate::json;
 use chrono::NaiveDate;
@@ -73,8 +72,13 @@ impl Display for WebhookType {
 }
 
 
-#[derive(Clone)]
 pub struct WebhookDescriptor {
+    pub inner: Arc<Mutex<WebhookDescriptorInner>>,
+}
+
+
+#[derive(Clone)]
+pub struct WebhookDescriptorInner {
     pub path: String,
     pub name : String,
     pub url : String,
@@ -95,11 +99,11 @@ impl Display for WebhookDescriptor {
             interval: {}
             period: {}
             ", 
-            self.name,
-            self.url,
-            self.webhook_type,
-            self.interval,
-            self.period.to_string(),
+            self.inner.lock().expect("poisoned").name,
+            self.inner.lock().expect("poisoned").url,
+            self.inner.lock().expect("poisoned").webhook_type,
+            self.inner.lock().expect("poisoned").interval,
+            self.inner.lock().expect("poisoned").period.to_string(),
         )
     }
 }
@@ -120,6 +124,10 @@ struct WebhookJsonPlaceholders {
 
 
 pub struct BBDaemon {
+    inner: Arc<Mutex<BBDaemonInner>>,
+}
+
+pub struct BBDaemonInner {
     paths : ProgramPaths,
     db : Option<database::Session>,
     webhooks : Option<Vec<WebhookDescriptor>>,
@@ -129,24 +137,31 @@ impl BBDaemon {
 
     /// Initialization function of the daemon only requires that the paths be specified for this runtime.
     pub fn init(paths: ProgramPaths) -> Result<Self, errors::Error> {
-        Ok (Self {
-            paths,
-            db : None,
-            webhooks : Some(Vec::new()),
+        Ok (Self { inner : 
+            Arc::new(Mutex::new( 
+                BBDaemonInner {
+                    paths,
+                    db : None,
+                    webhooks : Some(Vec::new()),
+                }
+            ))
         })
     }
 
     pub fn run(&mut self) -> Result<(), errors::Error> {
 
         // Initialize connection persistent local data storage
-        self.db = Some(database::Session::init(&self.paths).expect("An unexpected error occurred initializing the database."));
+        let session = Some(
+                database::Session::init(&self.inner.lock().expect("poisoned").paths)
+                .expect("An unexpected error occurred initializing the database."));
+        self.inner.lock().expect("poisoned").db = session;
+
+        debug!("Database initialization complete");
         
         // Read configs and store data in self
         self.parse_all_webhook_configs()?;
 
-        thread::spawn(||{
-        
-        });
+
 
 
         // validate data within persist db (bbdb.rs)
@@ -192,8 +207,8 @@ impl BBDaemon {
 
 
     fn parse_all_webhook_configs(&mut self) -> Result<(), errors::Error> {
-
-        let webhooks = read_dir(&self.paths.etc.join(PATH_WEBHOOKS_ETC))?;
+        log::debug!("Starting webhook parse");
+        let webhooks = read_dir(&self.inner.lock().expect("poisoned").paths.etc.join(PATH_WEBHOOKS_ETC))?;
         let mut webhook_path: PathBuf;
 
         let regex_conf = Regex::new(REGEX_CONF)?;
@@ -223,7 +238,8 @@ impl BBDaemon {
                 webhook_config = parse_webhook_config(&path, &name)?;
                 webhook_placeholders = parse_webhook_json_placeholders(&path, &name)?;
 
-                let descriptor: WebhookDescriptor = WebhookDescriptor {
+                log::debug!("Creating inner webhook descriptor for {}", name);
+                let descriptor_inner: Arc<Mutex<WebhookDescriptorInner>> = Arc::new(Mutex::new(WebhookDescriptorInner {
                     path,
                     name : webhook_config.name.clone(),
                     url : webhook_config.url,
@@ -231,13 +247,19 @@ impl BBDaemon {
                     interval : webhook_config.interval,
                     period : webhook_config.period,
                     placeholders: webhook_placeholders.placeholders.clone(),
-                };
+                }));
 
-                self.db.as_mut().unwrap().add_webhook_parent(&descriptor)?;
-                self.webhooks.as_mut().unwrap().push(descriptor);
+                let descriptor = WebhookDescriptor { inner: descriptor_inner };
+
+                log::debug!("Pushing webhook descriptor to self {}", name);
+                self.inner.lock().expect("poisoned")
+                    .db.as_mut().unwrap().add_webhook_parent(&descriptor)?;
+                self.inner.lock().expect("poisoned")
+                    .webhooks.as_mut().unwrap().push(descriptor);
 
                 for placeholder in webhook_placeholders.placeholders {
-                    self.db.as_mut().unwrap().add_webhook_placeholder(&webhook_config.name, &placeholder)?;
+                    self.inner.lock().expect("poisoned").db.as_mut().unwrap()
+                        .add_webhook_placeholder(&webhook_config.name, &placeholder)?;
                 }
             }
 
@@ -319,7 +341,7 @@ fn parse_webhook_json_placeholders(path: &String, name: &String) -> Result<Webho
 fn open_as_string(path: &String, name: &String, ext: &str) -> Result<String, errors::Error> {
 
      // Combine the path and name into a single PathBuf
-    let path_full: &PathBuf = &PathBuf::from(path).join(format!("{}.{}",name, ext));
+    let path_full: &PathBuf = &PathBuf::from(path).join(format!("{}{}",name, ext));
 
     // Open the config file and prep a string buffer to receive it's contents
     let mut file = File::open(path_full)?;
