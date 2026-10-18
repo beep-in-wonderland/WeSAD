@@ -161,7 +161,10 @@ impl BBDaemon {
         // Read configs and store data in self
         self.parse_all_webhook_configs()?;
 
-
+        // Drop all the orhpaned values from the db
+        self.inner.lock().expect("poisoned")
+            .db.as_mut().unwrap()
+            .drop_orphaned_values()?;
 
 
         // validate data within persist db (bbdb.rs)
@@ -226,7 +229,7 @@ impl BBDaemon {
             let target_string = webhook_path.display().to_string();
             captures = regex_conf.captures(&target_string)?;
 
-            log::debug!("Target string: {}", target_string);
+            log::debug!("Target string for config: {}", target_string);
             log::debug!("Match found: {}", captures.as_ref().is_none().not());
 
             // If the regex found any captures
@@ -252,8 +255,10 @@ impl BBDaemon {
                 let descriptor = WebhookDescriptor { inner: descriptor_inner };
 
                 log::debug!("Pushing webhook descriptor to self {}", name);
+                
                 self.inner.lock().expect("poisoned")
                     .db.as_mut().unwrap().add_webhook_parent(&descriptor)?;
+
                 self.inner.lock().expect("poisoned")
                     .webhooks.as_mut().unwrap().push(descriptor);
 
