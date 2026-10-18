@@ -3,6 +3,7 @@ use std::fmt::Display;
 use std::io::Read;
 use std::ops::Not;
 use std::str::FromStr;
+use std::thread;
 
 use crate::errors::Error::ConfigErr;
 use crate::read_dir;
@@ -14,6 +15,7 @@ use crate::tokio;
 use crate::dbus;
 use crate::daemonize;
 use crate::fancy_regex::Regex;
+use crate::Arc;
 
 use crate::discord;
 use crate::smtp;
@@ -73,6 +75,7 @@ impl Display for WebhookType {
 
 #[derive(Clone)]
 pub struct WebhookDescriptor {
+    pub path: String,
     pub name : String,
     pub url : String,
     pub webhook_type: WebhookType,
@@ -138,10 +141,12 @@ impl BBDaemon {
         // Initialize connection persistent local data storage
         self.db = Some(database::Session::init(&self.paths).expect("An unexpected error occurred initializing the database."));
         
+        // Read configs and store data in self
         self.parse_all_webhook_configs()?;
 
-        // Read configs
-
+        thread::spawn(||{
+        
+        });
 
 
         // validate data within persist db (bbdb.rs)
@@ -150,9 +155,6 @@ impl BBDaemon {
         //      Discord webhooks (discord.rs) 
 
         // read, validate, and store configs (bbconf.rs)
-
-        // initialize daemon with validated data
-        //      daemon publishes to session D-Bus
 
         // external scripts use dbus method calls to send updates
         //      bbnd updates the stored data in the database
@@ -165,7 +167,16 @@ impl BBDaemon {
 
     /// Spawns a thread that continuously updates embeds based on cron intervals
     /// and current database information
-    fn update() -> Result<(), errors::Error> {
+    fn update_loop(&self) -> Result<(), errors::Error> {
+        
+        // while True:
+        //  Iterate over & execute first round of webhook updates
+        //  If a value is null in db, use a default value e.g. NULL or :black_circle:
+
+        //  Find the time in seconds between now and the next scheduled update from all the status webhooks
+        //  let mut sleep_interval: &f64 = next_update_shortest()?;
+        //  sleep(sleep_interval)
+
         Ok(())
     }
 
@@ -173,6 +184,9 @@ impl BBDaemon {
     /// Spawns a thread that continuously listens for updates via user D-BUS in 
     /// order to update database based on external signals
     fn listen() -> Result<(), errors::Error> {
+        
+        // Figure out D-Bus shit
+
         Ok(())
     }
 
@@ -210,6 +224,7 @@ impl BBDaemon {
                 webhook_placeholders = parse_webhook_json_placeholders(&path, &name)?;
 
                 let descriptor: WebhookDescriptor = WebhookDescriptor {
+                    path,
                     name : webhook_config.name.clone(),
                     url : webhook_config.url,
                     webhook_type : webhook_config.webhook_type,
@@ -238,16 +253,10 @@ impl BBDaemon {
 
 fn parse_webhook_config(path: &String, name: &String) -> Result<WebhookConfigContents, errors::Error> {
 
-    // Combine the path and name into a single PathBuf
-    let path_full: &PathBuf = &PathBuf::from(path).join(format!("{}.conf", name));
+    // Open the config file
+    let conf_str: &String = &open_as_string(path, name, ".conf")?;
 
-    // Open the config file and prep a string buffer to receive it's contents
-    let mut conf_file = File::open(path_full)?;
-    let mut conf_str: String = String::new();
-
-    // Write the contents of the conf file to the string buffer and parse it to a json object
-    conf_file.read_to_string(&mut conf_str)?;
-    let conf_json = json::parse(&conf_str)?;
+    let conf_json = json::parse(conf_str)?;
 
     validate_config_lines(&conf_json, &name)?;
 
@@ -291,18 +300,11 @@ fn parse_webhook_json_placeholders(path: &String, name: &String) -> Result<Webho
 
     let mut placeholders = Vec::new();
 
-    // Combine the path and name into a single PathBuf
-    let path_full: &PathBuf = &PathBuf::from(path).join(format!("{}.json", name));
-
-    // Open the config file and prep a string buffer to receive it's contents
-    let mut json_file = File::open(path_full)?;
-    let mut json_str: String = String::new();
-
-    // Write the contents of the conf file to the string buffer and parse it to a json object
-    json_file.read_to_string(&mut json_str)?;
+    // Open the json template embed file
+    let json_str: &String = &open_as_string(path, name, ".json")?;
 
     let re = Regex::new(REGEX_PLACEHOLDERS)?;
-    let mut matches = re.captures_iter(&json_str);
+    let mut matches = re.captures_iter(json_str);
 
     for regmatch in matches {
         placeholders.push(regmatch.unwrap().get(2).unwrap().as_str().to_string());
@@ -311,5 +313,20 @@ fn parse_webhook_json_placeholders(path: &String, name: &String) -> Result<Webho
     Ok(WebhookJsonPlaceholders {
         placeholders,
     })
+}
+
+
+fn open_as_string(path: &String, name: &String, ext: &str) -> Result<String, errors::Error> {
+
+     // Combine the path and name into a single PathBuf
+    let path_full: &PathBuf = &PathBuf::from(path).join(format!("{}.{}",name, ext));
+
+    // Open the config file and prep a string buffer to receive it's contents
+    let mut file = File::open(path_full)?;
+    let mut str_buf: String = String::new();
+
+    // Write the contents of the conf file to the string buffer and parse it to a json object
+    file.read_to_string(&mut str_buf)?;
+    Ok(str_buf)
 }
 
