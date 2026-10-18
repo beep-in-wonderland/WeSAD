@@ -16,7 +16,7 @@ use json; // parsing config files
 use thiserror;
 use fern;
 use chrono;
-use regex;
+use fancy_regex;
 
 use log::{info,warn,debug,error,Level};
 
@@ -83,13 +83,13 @@ pub struct CLIArgs {
 impl Default for CLIArgs {
     fn default() -> Self {
         Self {
-            log_level : Level::Warn,
+            log_level : Level::Debug,
         }
     }
 }
 
 
-fn main() {
+fn main() -> Result<(), errors::Error> {
 
     // Allow the CLI args to be mutable in case these require adjustment during runtime 
     // via user input.
@@ -101,13 +101,15 @@ fn main() {
 
     // Initialize the logger
     init_logger(&cli_args.log_level, &paths.log);
-
+    debug!("test");
 
     // Initialize the daemon
     let mut daemon = bbnd::BBDaemon::init(paths).expect("An unexpected error occurred initializing the daemon.");
 
     // Run the daemon
-    daemon.run();
+    daemon.run()?;
+
+    Ok(())
 
 }
 

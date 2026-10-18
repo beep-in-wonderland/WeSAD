@@ -1,5 +1,4 @@
 use crate::thiserror;
-use crate::sqlite::Error as sqliteError;
 
 
 #[derive(Debug)]
@@ -18,13 +17,13 @@ impl ErrorObj {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("sqlite failed: {0}")]
-    SqliteErr(#[from] sqliteError),
+    SqliteErr(#[from] sqlite::Error),
 
     #[error("std io error: {0}")]
     StdIoErr(#[from] std::io::Error),
 
     #[error("regex error: {0}")]
-    RegexErr(#[from] regex::Error),
+    RegexErr(#[from] fancy_regex::Error),
 
     #[error("Json error: {0}")]
     JsonErr(#[from] json::Error),
@@ -33,5 +32,8 @@ pub enum Error {
     BbdbUnreadable(ErrorObj),
 
     #[error("Invalid argument: {0}")]
-    ArgumentError(ErrorObj),
+    ArgumentErr(ErrorObj),
+
+    #[error("Config Error: {0}")]
+    ConfigErr(String),
 }

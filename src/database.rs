@@ -13,7 +13,9 @@ use crate::{info,error,debug,warn};
 const TAB_WEBHOOKS: &str = "webhooks";
 const COL_WEBHOOK_NAME: &str = "webhook";
 const COL_WEBHOOK_URL: &str = "url";
-const COL_CRON_STRING: &str = "cron";
+const COL_WEBHOOK_TYPE: &str = "webhook_type";
+const COL_INT_TYPE: &str = "interval";
+const COL_INT_VALUE: &str = "period";
 
 const TAB_PLACEHOLDERS: &str = "placeholders";
 const COL_WEBHOOK_PLACEHOLDER: &str = "placeholder";
@@ -59,15 +61,35 @@ impl Session {
     pub fn add_webhook_parent(&self, webhook: &WebhookDescriptor) -> Result<(), errors::Error> {
 
         let query = format!("INSERT INTO 
-                {TAB_WEBHOOKS} ({COL_WEBHOOK_NAME}, {COL_WEBHOOK_URL}, {COL_CRON_STRING}) 
-                VALUES (:name, :url, :cron)");
+                {TAB_WEBHOOKS} ({COL_WEBHOOK_NAME}, {COL_WEBHOOK_URL}, {COL_WEBHOOK_TYPE}, {COL_INT_TYPE}, {COL_INT_VALUE}) 
+                VALUES (:name, :url, :type, :interval, :period)");
 
         let mut statement = self.connection.as_ref().unwrap().prepare(query).unwrap();
 
         statement.bind::<&[(_, sqlite::Value)]>(&[
-            (":name", webhook.webhook_name.clone().into()),
-            (":url", webhook.webhook_url.clone().into()),
-            (":cron", webhook.cron_descriptor.as_str().into())
+            (":name", webhook.name.clone().into()),
+            (":url", webhook.url.clone().into()),
+            (":type", webhook.webhook_type.clone().to_string().into()),
+            (":interval", webhook.interval.as_str().into()),
+            (":period", webhook.period.into()),
+        ])?;
+
+        statement.next()?;
+
+        Ok(())
+    }
+
+    pub fn add_webhook_placeholder(&self, webhook_name: &String, placeholder: &String) -> Result<(), errors::Error> {
+
+        let query = format!("INSERT INTO 
+                {TAB_PLACEHOLDERS} ({COL_WEBHOOK_NAME}, {COL_WEBHOOK_PLACEHOLDER}) 
+                VALUES (:name, :placeholder)");
+
+        let mut statement = self.connection.as_ref().unwrap().prepare(query).unwrap();
+
+        statement.bind::<&[(_, sqlite::Value)]>(&[
+            (":name", webhook_name.as_str().into()),
+            (":placeholder", placeholder.as_str().into()),
         ])?;
 
         statement.next()?;
@@ -107,7 +129,9 @@ fn create_webhook_parent_table(connection: &Connection) -> Result<(), errors::Er
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             {COL_WEBHOOK_NAME} VARCHAR(20),
                             {COL_WEBHOOK_URL} VARCHAR(150),
-                            {COL_CRON_STRING} VARCHAR(20)
+                            {COL_WEBHOOK_TYPE} VARCHAR(10),
+                            {COL_INT_TYPE} VARCHAR(20),
+                            {COL_INT_VALUE} REAL
                             )
                         ");
 
