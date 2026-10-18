@@ -60,6 +60,7 @@ impl FromStr for WebhookType {
 
 }
 
+
 impl Display for WebhookType {
 
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -109,6 +110,10 @@ impl Display for WebhookDescriptor {
 }
 
 
+struct RequestWindow {
+    data : Arc<Mutex<Vec<String>>>,
+}
+
 struct WebhookConfigContents {
     name : String,
     url : String,
@@ -123,15 +128,17 @@ struct WebhookJsonPlaceholders {
 }
 
 
-pub struct BBDaemon {
-    inner: Arc<Mutex<BBDaemonInner>>,
-}
-
 pub struct BBDaemonInner {
     paths : ProgramPaths,
     db : Option<database::Session>,
     webhooks : Option<Vec<WebhookDescriptor>>,
 }
+
+
+pub struct BBDaemon {
+    inner: Arc<Mutex<BBDaemonInner>>,
+}
+
 
 impl BBDaemon {
 
@@ -150,29 +157,26 @@ impl BBDaemon {
 
     pub fn run(&mut self) -> Result<(), errors::Error> {
 
-        // Initialize connection persistent local data storage
+        // Initialize persistent local db.
         let session = Some(
                 database::Session::init(&self.inner.lock().expect("poisoned").paths)
                 .expect("An unexpected error occurred initializing the database."));
         self.inner.lock().expect("poisoned").db = session;
 
-        debug!("Database initialization complete");
-        
-        // Read configs and store data in self
+        // Read configs and store data in db
         self.parse_all_webhook_configs()?;
 
-        // Drop all the orhpaned values from the db
+        // Drop all the orhpaned data from the db
         self.inner.lock().expect("poisoned")
             .db.as_mut().unwrap()
             .drop_orphaned_values()?;
 
+        // Spawn the update_loop thread with an Arc clone of the self.inner mutex to share data between threads
+        // Will continuously send out webhook updates as defined by the webhook configs
+        self.spawn_update_loop()?;
 
-        // validate data within persist db (bbdb.rs)
-        // test connections to 
-        //      SMTP (smtp.rs)
-        //      Discord webhooks (discord.rs) 
-
-        // read, validate, and store configs (bbconf.rs)
+        // Listen on the D-Bus for updates to send to the shared BBDaemonInner data
+        self.listen();
 
         // external scripts use dbus method calls to send updates
         //      bbnd updates the stored data in the database
@@ -180,32 +184,6 @@ impl BBDaemon {
         //   will publish updates to the webhooks and/or send emails 
 
         Ok (())
-    }
-
-
-    /// Spawns a thread that continuously updates embeds based on cron intervals
-    /// and current database information
-    fn update_loop(&self) -> Result<(), errors::Error> {
-        
-        // while True:
-        //  Iterate over & execute first round of webhook updates
-        //  If a value is null in db, use a default value e.g. NULL or :black_circle:
-
-        //  Find the time in seconds between now and the next scheduled update from all the status webhooks
-        //  let mut sleep_interval: &f64 = next_update_shortest()?;
-        //  sleep(sleep_interval)
-
-        Ok(())
-    }
-
-    
-    /// Spawns a thread that continuously listens for updates via user D-BUS in 
-    /// order to update database based on external signals
-    fn listen() -> Result<(), errors::Error> {
-        
-        // Figure out D-Bus shit
-
-        Ok(())
     }
 
 
@@ -273,7 +251,38 @@ impl BBDaemon {
         Ok(())
     }
 
+    fn spawn_update_loop(&self) -> Result<(), errors::Error> {
 
+        let mut thread_bbnd = Arc::clone(&self.inner);
+
+        thread::spawn( move || {
+            loop {
+                update_loop(&mut thread_bbnd);
+            }
+        });
+        debug!("Update thread spawned successfully");
+
+        Ok(())
+    }
+
+
+    /// Continuously listens for updates via user D-BUS in order to update the shared BBDaemonInner mutex
+    fn listen(&self) -> () {
+
+        // listen() should publish this process on the D-Bus, then iterate through the following procedures:
+        // 1. Append any incoming signals to a queue
+        // 
+        // 2. Process the request as either a webhook status, or webhook alert
+        // 3. Validate that the target of the data is correct.
+        //    IF: webhook status:
+        //          Lock the BBDaemonInner mutex, write to the db, then release the guard.
+        //    IF: webhook alert:
+        //          Send the alert data to the discord module and continue listening
+
+        loop {
+            break;
+        }
+    }
 
 }
 

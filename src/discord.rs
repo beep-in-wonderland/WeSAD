@@ -1,15 +1,12 @@
 use crate::bbnd;
 
-fn read_webhook_configs() {
 
-    // ---------------------------------------------------------------webhooks
-    // create a Vec<WebhookDescriptor> object
-    // for each /etc/webhooks/*.json file
-    //      check for a matching *.conf file
-    //      create a new webhook object with:
-    //          webhook config data from *.conf
-    //          Vec<String> for values in the webhook *.json
-    //      append the webhook object to the Vec<WebhookDescriptor> return object
+pub fn send_webhook_message(webhook: &String, data: &String) -> () {
+
+}
+
+
+pub fn send_webhook_update(webhook: &String, data: &String, message_id: usize) -> () {
 
 }
 

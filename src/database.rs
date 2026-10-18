@@ -52,6 +52,7 @@ impl Session {
         } else {
             new_session.connection = Some(init_db_from_fresh(db_path).unwrap());
         }
+        debug!("Database initialization complete");
         Ok(new_session)
     }
 
