@@ -32,7 +32,7 @@ pub enum Error {
     BbdbUnreadable(ErrorObj),
 
     #[error("Invalid argument: {0}")]
-    ArgumentErr(ErrorObj),
+    ArgumentErr(String),
 
     #[error("Config Error: {0}")]
     ConfigErr(String),

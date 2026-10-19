@@ -16,7 +16,6 @@ const TAB_WEBHOOKS: &str = "webhooks";
 const COL_WEBHOOK_NAME: &str = "webhook";
 const COL_WEBHOOK_URL: &str = "url";
 const COL_WEBHOOK_TYPE: &str = "webhook_type";
-const COL_INT_TYPE: &str = "interval";
 const COL_INT_VALUE: &str = "period";
 const COL_ORPHANED: &str = "orphaned";
 
@@ -57,28 +56,32 @@ impl Session {
     }
 
 
-    pub fn add_webhook_parent(&self, webhook: &WebhookDescriptor) -> Result<(), errors::Error> {
+    /// Takes the provided webhook and either updates or inserts it into the db depending if it exists already.
+    pub fn set_webhook_parent(&self, webhook: &WebhookDescriptor) -> Result<(), errors::Error> {
+
+        let name = webhook.inner.lock().expect("poisoned")
+                .name.clone();
+
+        // If the webhook is already in the db table, update the record instead of inserting.
+        if check_webhook_exists(self.connection.as_ref().unwrap(), &name) { 
+            debug!("Webhook `{}` found in db. Removing orphaned flag and updating.", &name);
+            self.update_webhook_parent(&webhook)
+
+        } else {
+            debug!("Webhook `{}` not found in db. Inserting.", &name);
+            self.add_webhook_parent(&webhook)
+        }
+    }
+
+    /// Helper function for set_webhook_parent(). Updates the webhook instead of inserting a new entry.
+    fn add_webhook_parent(&self, webhook: &WebhookDescriptor) -> Result<(), errors::Error> {
 
         // Claim the mutex of the WebhookDescriptor
         let w = webhook.inner.lock().expect("poisoned");
 
-        // If the webhook is already in the db table, return early.
-        if check_webhook_exists(self.connection.as_ref().unwrap(), &w.name) { 
-            debug!("Webhook `{}` already found in db - removing orphaned flag and skipping.", w.name);
-            set_webhook_orphaned_by_name(
-                self.connection.as_ref().unwrap(), 
-                &w.name,
-                false
-            )?;
-            return Ok(()) 
-        }
-
-        // Else, continue with construction of the webhook entry...
-
-
         let query = format!("INSERT INTO 
-                {TAB_WEBHOOKS} ({COL_WEBHOOK_NAME}, {COL_WEBHOOK_URL}, {COL_WEBHOOK_TYPE}, {COL_INT_TYPE}, {COL_INT_VALUE}, {COL_ORPHANED}) 
-                VALUES (:name, :url, :type, :interval, :period, '0')");
+                {TAB_WEBHOOKS} ({COL_WEBHOOK_NAME}, {COL_WEBHOOK_URL}, {COL_WEBHOOK_TYPE}, {COL_INT_VALUE}, {COL_ORPHANED}) 
+                VALUES (:name, :url, :type, :period, '0')");
 
         let mut statement = self.connection.as_ref().unwrap().prepare(query).unwrap();
 
@@ -88,7 +91,6 @@ impl Session {
             (":name", w.name.clone().into()),
             (":url", w.url.clone().into()),
             (":type", w.webhook_type.to_string().into()),
-            (":interval", w.interval.as_str().into()),
             (":period", w.period.into()),
         ])?;
 
@@ -97,25 +99,80 @@ impl Session {
         Ok(())
     }
 
-    pub fn add_webhook_placeholder(&self, name: &String, placeholder: &String) -> Result<(), errors::Error> {
+    /// Helper function for set_webhook_parent(). Inserts the webhook as a new entry in the table.
+    fn update_webhook_parent(&self, webhook: &WebhookDescriptor) -> Result<(), errors::Error> {
+
+        // Claim the mutex of the WebhookDescriptor
+        let w = webhook.inner.lock().expect("poisoned");
+
+        let query = format!("
+                UPDATE 
+                    {TAB_WEBHOOKS} 
+                SET
+                    {COL_WEBHOOK_URL}=:url, 
+                    {COL_WEBHOOK_TYPE}=:type, 
+                    {COL_INT_VALUE}=:period, 
+                    {COL_ORPHANED}='0'
+                WHERE 
+                    {COL_WEBHOOK_NAME} = :name;
+            ");
+
+        let mut statement = self.connection.as_ref().unwrap().prepare(query).unwrap();
+
+        statement.bind::<&[(_, sqlite::Value)]>(&[
+            (":name", w.name.clone().into()),
+            (":url", w.url.clone().into()),
+            (":type", w.webhook_type.to_string().into()),
+            (":period", w.period.into()),
+        ])?;
+
+        statement.next()?;
+
+        Ok(())
+    }
+
+
+    /// Takes the provided placeholder and either updates or inserts it into the db depending if it exists already.
+    pub fn set_webhook_placeholder(&self, name: &String, placeholder: &String) -> Result<(), errors::Error> {
         
         // If the placeholder is already in the db table, return early.
         if check_plceholder_exists(self.connection.as_ref().unwrap(), name, placeholder) { 
 
-            debug!("Webhook `{}`, Placeholder `{}`, removing orphaned flag and skipping.", name, placeholder);
-            set_placeholder_orphaned_by_name(
-                self.connection.as_ref().unwrap(), 
-                name, 
-                placeholder,
-                false
-            )?;
-
-            return Ok(()) 
+            debug!("Webhook `{}`, Placeholder `{}` found. Removing orphaned flag.", name, placeholder);
+            self.update_webhook_placeholder(&name, &placeholder)
+        } else {
+            debug!("Webhook `{}`, Placeholder `{}` not found. Inserting.", name, placeholder);
+            self.add_webhook_placeholder(&name, &placeholder)
         }
+        
+    }
 
-        // Else, continue with construction of the placeholder entry...
+    /// Helper function for set_webhook_placeholder(). Updates the placeholder instead of inserting a new entry.
+    fn update_webhook_placeholder(&self, name: &String, placeholder: &String) -> Result<(), errors::Error> {
+        let query = format!("
+                UPDATE 
+                    {TAB_PLACEHOLDERS} 
+                SET  
+                    {COL_ORPHANED}='0'
+                WHERE 
+                    {COL_WEBHOOK_NAME}=:name 
+                    AND {COL_WEBHOOK_PLACEHOLDER}=:placeholder;
+            ");
 
+        let mut statement = self.connection.as_ref().unwrap().prepare(query).unwrap();
 
+        statement.bind::<&[(_, sqlite::Value)]>(&[
+            (":name", name.as_str().into()),
+            (":placeholder", placeholder.as_str().into()),
+        ])?;
+
+        statement.next()?;
+
+        Ok(())
+    }
+
+    /// Helper function for set_webhook_placeholder(). Inserts the placeholder as a new entry in the table.
+    fn add_webhook_placeholder(&self, name: &String, placeholder: &String) -> Result<(), errors::Error> {
         let query = format!("INSERT INTO 
                 {TAB_PLACEHOLDERS} ({COL_WEBHOOK_NAME}, {COL_WEBHOOK_PLACEHOLDER}, {COL_ORPHANED}) 
                 VALUES (:name, :placeholder, '0')");
@@ -142,6 +199,7 @@ impl Session {
         Ok(())
     }
 
+    /// Helpder function for drop_orphaned_values() that removes all orphaned values from a provided table.
     fn drop_orphaned_values_from_table(&self, table: &str) -> Result<(), errors::Error>{
 
         
@@ -193,7 +251,6 @@ fn create_webhook_parent_table(connection: &Connection) -> Result<(), errors::Er
                             {COL_WEBHOOK_NAME} VARCHAR(20),
                             {COL_WEBHOOK_URL} VARCHAR(150),
                             {COL_WEBHOOK_TYPE} VARCHAR(10),
-                            {COL_INT_TYPE} VARCHAR(20),
                             {COL_INT_VALUE} REAL,
                             {COL_ORPHANED} INTEGER
                             )
@@ -231,6 +288,7 @@ fn validate_existing_schema(connection: &Connection) -> Result<(), errors::Error
 
     Ok(())
 }
+
 
 fn check_webhook_exists(connection: &Connection, name: &String) -> bool {
 
@@ -307,5 +365,4 @@ fn set_placeholder_orphaned_by_name(connection: &Connection, name: &String, plac
     statement.next()?;
     Ok(())
 }
-
 

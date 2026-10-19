@@ -174,7 +174,7 @@ fn init_logger(log_level: &Level, log_path: &PathBuf) {
     fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(
-                "[{}][{}] {}\n",
+                "[{}][{}] {}",
                 chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
                 record.level(),
                 message

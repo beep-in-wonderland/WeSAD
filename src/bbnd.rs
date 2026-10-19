@@ -5,6 +5,7 @@ use std::ops::Not;
 use std::str::FromStr;
 use std::thread;
 
+use crate::errors::Error::ArgumentErr;
 use crate::errors::Error::ConfigErr;
 use crate::read_dir;
 use crate::PathBuf;
@@ -23,6 +24,7 @@ use crate::{discord, smtp, database, errors};
 
 use crate::json;
 use chrono::NaiveDate;
+use chrono::NaiveDateTime;
 use fancy_regex::Captures;
 use json::JsonValue;
 
@@ -84,9 +86,9 @@ pub struct WebhookDescriptorInner {
     pub name : String,
     pub url : String,
     pub webhook_type: WebhookType,
-    pub interval: String,
     pub period: i64,
     pub placeholders: Vec<String>,
+    pub last: Option<NaiveDateTime>,
 }
 
 
@@ -97,22 +99,16 @@ impl Display for WebhookDescriptor {
             Webhook {}
             url: {}
             type: {}
-            interval: {}
             period: {}
             ", 
             self.inner.lock().expect("poisoned").name,
             self.inner.lock().expect("poisoned").url,
             self.inner.lock().expect("poisoned").webhook_type,
-            self.inner.lock().expect("poisoned").interval,
             self.inner.lock().expect("poisoned").period.to_string(),
         )
     }
 }
 
-
-struct RequestWindow {
-    data : Arc<Mutex<Vec<String>>>,
-}
 
 struct WebhookConfigContents {
     name : String,
@@ -219,15 +215,23 @@ impl BBDaemon {
                 webhook_config = parse_webhook_config(&path, &name)?;
                 webhook_placeholders = parse_webhook_json_placeholders(&path, &name)?;
 
+                // Calculate the period in seconds based on `interval` and `period`
+                let period: i64 = match webhook_config.interval.to_lowercase().trim() {
+                    "seconds" => webhook_config.period,
+                    "minutes" => webhook_config.period*60, // Convert minutes to seconds
+                    "hours" => webhook_config.period*60*60, // Convert hours to seconds
+                    _ => 0
+                };
+
                 log::debug!("Creating inner webhook descriptor for {}", name);
                 let descriptor_inner: Arc<Mutex<WebhookDescriptorInner>> = Arc::new(Mutex::new(WebhookDescriptorInner {
                     path,
                     name : webhook_config.name.clone(),
                     url : webhook_config.url,
                     webhook_type : webhook_config.webhook_type,
-                    interval : webhook_config.interval,
-                    period : webhook_config.period,
+                    period : period,
                     placeholders: webhook_placeholders.placeholders.clone(),
+                    last: None,
                 }));
 
                 let descriptor = WebhookDescriptor { inner: descriptor_inner };
@@ -235,14 +239,14 @@ impl BBDaemon {
                 log::debug!("Pushing webhook descriptor to self {}", name);
                 
                 self.inner.lock().expect("poisoned")
-                    .db.as_mut().unwrap().add_webhook_parent(&descriptor)?;
+                    .db.as_mut().unwrap().set_webhook_parent(&descriptor)?;
 
                 self.inner.lock().expect("poisoned")
                     .webhooks.as_mut().unwrap().push(descriptor);
 
                 for placeholder in webhook_placeholders.placeholders {
                     self.inner.lock().expect("poisoned").db.as_mut().unwrap()
-                        .add_webhook_placeholder(&webhook_config.name, &placeholder)?;
+                        .set_webhook_placeholder(&webhook_config.name, &placeholder)?;
                 }
             }
 
@@ -256,9 +260,7 @@ impl BBDaemon {
         let mut thread_bbnd = Arc::clone(&self.inner);
 
         thread::spawn( move || {
-            loop {
-                update_loop(&mut thread_bbnd);
-            }
+            update_loop(&mut thread_bbnd);
         });
         debug!("Update thread spawned successfully");
 
@@ -366,3 +368,21 @@ fn open_as_string(path: &String, name: &String, ext: &str) -> Result<String, err
     Ok(str_buf)
 }
 
+
+/// Continuously updates the `status` webhooks in the `BBDaemonInner` struct based on their individual
+/// update interval types and periods.
+fn update_loop(data: &mut Arc<Mutex<BBDaemonInner>>) -> () {
+    // Each iteration, the loop should:
+    // 1. Lock the mutex
+    // 2. Fetch all status type webhooks
+    // 3. Compare the `last` + `period` fields to the current DateTime
+    // 4. Execute any updates where necessary, update the `last` fields
+    // 5. Find the minimum seconds of the `last` fields for the next update
+    // 6. Copy the data into a local variable `sleep_duration`
+    // 7. Release the mutex
+    // 8. Put the thread to sleep for `sleep_duration` seconds
+
+    loop {
+        break;
+    }
+}
