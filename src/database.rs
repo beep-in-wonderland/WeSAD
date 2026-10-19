@@ -16,8 +16,10 @@ const TAB_WEBHOOKS: &str = "webhooks";
 const COL_WEBHOOK_NAME: &str = "webhook";
 const COL_WEBHOOK_URL: &str = "url";
 const COL_WEBHOOK_TYPE: &str = "webhook_type";
-const COL_INT_VALUE: &str = "period";
+const COL_PERIOD: &str = "period";
 const COL_ORPHANED: &str = "orphaned";
+const COL_MESSAGE_ID: &str = "messageId";
+const COL_LAST: &str = "last";
 
 const TAB_PLACEHOLDERS: &str = "placeholders";
 const COL_WEBHOOK_PLACEHOLDER: &str = "placeholder";
@@ -31,6 +33,15 @@ enum BbdbLocations {
 
 pub struct Session {
     connection : Option<sqlite::Connection>,
+}
+
+
+pub struct WebhookStatus {
+    pub name: String,
+    pub url: String,
+    pub period: f64,
+    pub last: u64,
+    pub msg_id: u64,
 }
 
 
@@ -59,8 +70,7 @@ impl Session {
     /// Takes the provided webhook and either updates or inserts it into the db depending if it exists already.
     pub fn set_webhook_parent(&self, webhook: &WebhookDescriptor) -> Result<(), errors::Error> {
 
-        let name = webhook.inner.lock().expect("poisoned")
-                .name.clone();
+        let name = &webhook.name;
 
         // If the webhook is already in the db table, update the record instead of inserting.
         if check_webhook_exists(self.connection.as_ref().unwrap(), &name) { 
@@ -73,25 +83,22 @@ impl Session {
         }
     }
 
-    /// Helper function for set_webhook_parent(). Updates the webhook instead of inserting a new entry.
+    /// Helper function for set_webhook_parent(). Inserts the webhook as a new entry in the table.
     fn add_webhook_parent(&self, webhook: &WebhookDescriptor) -> Result<(), errors::Error> {
 
-        // Claim the mutex of the WebhookDescriptor
-        let w = webhook.inner.lock().expect("poisoned");
-
         let query = format!("INSERT INTO 
-                {TAB_WEBHOOKS} ({COL_WEBHOOK_NAME}, {COL_WEBHOOK_URL}, {COL_WEBHOOK_TYPE}, {COL_INT_VALUE}, {COL_ORPHANED}) 
-                VALUES (:name, :url, :type, :period, '0')");
+                {TAB_WEBHOOKS} ({COL_WEBHOOK_NAME}, {COL_WEBHOOK_URL}, {COL_WEBHOOK_TYPE}, {COL_PERIOD}, {COL_ORPHANED}, {COL_LAST}, {COL_MESSAGE_ID}) 
+                VALUES (:name, :url, :type, :period, '0', '0', '0')");
 
         let mut statement = self.connection.as_ref().unwrap().prepare(query).unwrap();
 
         
 
         statement.bind::<&[(_, sqlite::Value)]>(&[
-            (":name", w.name.clone().into()),
-            (":url", w.url.clone().into()),
-            (":type", w.webhook_type.to_string().into()),
-            (":period", w.period.into()),
+            (":name", webhook.name.clone().into()),
+            (":url", webhook.url.clone().into()),
+            (":type", webhook.webhook_type.to_string().into()),
+            (":period", webhook.period.into()),
         ])?;
 
         statement.next()?;
@@ -99,11 +106,8 @@ impl Session {
         Ok(())
     }
 
-    /// Helper function for set_webhook_parent(). Inserts the webhook as a new entry in the table.
+    /// Helper function for set_webhook_parent(). Updates the webhook instead of inserting a new entry.
     fn update_webhook_parent(&self, webhook: &WebhookDescriptor) -> Result<(), errors::Error> {
-
-        // Claim the mutex of the WebhookDescriptor
-        let w = webhook.inner.lock().expect("poisoned");
 
         let query = format!("
                 UPDATE 
@@ -111,7 +115,7 @@ impl Session {
                 SET
                     {COL_WEBHOOK_URL}=:url, 
                     {COL_WEBHOOK_TYPE}=:type, 
-                    {COL_INT_VALUE}=:period, 
+                    {COL_PERIOD}=:period, 
                     {COL_ORPHANED}='0'
                 WHERE 
                     {COL_WEBHOOK_NAME} = :name;
@@ -120,10 +124,10 @@ impl Session {
         let mut statement = self.connection.as_ref().unwrap().prepare(query).unwrap();
 
         statement.bind::<&[(_, sqlite::Value)]>(&[
-            (":name", w.name.clone().into()),
-            (":url", w.url.clone().into()),
-            (":type", w.webhook_type.to_string().into()),
-            (":period", w.period.into()),
+            (":name", webhook.name.clone().into()),
+            (":url", webhook.url.clone().into()),
+            (":type", webhook.webhook_type.to_string().into()),
+            (":period", webhook.period.into()),
         ])?;
 
         statement.next()?;
@@ -214,6 +218,46 @@ impl Session {
         Ok(())
     }
 
+
+    pub fn get_webhook_status_data(&self) -> Result<Vec<WebhookStatus>, errors::Error> {
+        
+        let mut result = Vec::new();
+        let query:String = format!("
+        SELECT
+            {COL_WEBHOOK_NAME},
+            {COL_WEBHOOK_URL},
+            {COL_PERIOD},
+            {COL_LAST},
+            {COL_MESSAGE_ID}        
+        FROM
+            {TAB_WEBHOOKS}
+        WHERE
+            {COL_WEBHOOK_TYPE} = 'status'
+        ORDER BY 
+            {COL_LAST}
+        ASC;
+        ");
+
+        let mut statement = self.connection.as_ref().unwrap().prepare(query)?;
+        
+        while let sqlite::State::Row = statement.next()? {
+            let name = statement.read::<String, _>(COL_WEBHOOK_NAME)?;
+            let url = statement.read::<String, _>(COL_WEBHOOK_URL)?;
+            let period = statement.read::<f64, _>(COL_PERIOD)?;
+            let last = statement.read::<String, _>(COL_LAST)?;
+            let msg_id = statement.read::<String, _>(COL_MESSAGE_ID)?;
+
+            result.push(
+                WebhookStatus { 
+                    name, url, period, last : last.as_u64().unwrap(), msg_id : msg_id.as_u64().unwrap()
+                }
+            )
+
+        }
+
+        Ok(result)
+    }
+
 }
 
 
@@ -251,8 +295,10 @@ fn create_webhook_parent_table(connection: &Connection) -> Result<(), errors::Er
                             {COL_WEBHOOK_NAME} VARCHAR(20),
                             {COL_WEBHOOK_URL} VARCHAR(150),
                             {COL_WEBHOOK_TYPE} VARCHAR(10),
-                            {COL_INT_VALUE} REAL,
-                            {COL_ORPHANED} INTEGER
+                            {COL_PERIOD} REAL,
+                            {COL_ORPHANED} INTEGER,
+                            {COL_MESSAGE_ID} TEXT,
+                            {COL_LAST} TEXT
                             )
                         ");
 

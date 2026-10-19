@@ -23,10 +23,12 @@ use crate::{info,error,debug,warn};
 use crate::{discord, smtp, database, errors};
 
 use crate::json;
-use chrono::NaiveDate;
-use chrono::NaiveDateTime;
+use chrono;
+use chrono::TimeDelta;
+use chrono::{NaiveDateTime, NaiveDate, Local, DateTime};
 use fancy_regex::Captures;
 use json::JsonValue;
+use mutex::MutexGuard;
 
 
 const PATH_WEBHOOKS_ETC: &str = "bbnd/webhooks.d";
@@ -75,20 +77,13 @@ impl Display for WebhookType {
 }
 
 
-pub struct WebhookDescriptor {
-    pub inner: Arc<Mutex<WebhookDescriptorInner>>,
-}
-
 
 #[derive(Clone)]
-pub struct WebhookDescriptorInner {
-    pub path: String,
+pub struct WebhookDescriptor {
     pub name : String,
     pub url : String,
     pub webhook_type: WebhookType,
     pub period: i64,
-    pub placeholders: Vec<String>,
-    pub last: Option<NaiveDateTime>,
 }
 
 
@@ -101,10 +96,10 @@ impl Display for WebhookDescriptor {
             type: {}
             period: {}
             ", 
-            self.inner.lock().expect("poisoned").name,
-            self.inner.lock().expect("poisoned").url,
-            self.inner.lock().expect("poisoned").webhook_type,
-            self.inner.lock().expect("poisoned").period.to_string(),
+            self.name,
+            self.url,
+            self.webhook_type,
+            self.period.to_string(),
         )
     }
 }
@@ -127,7 +122,6 @@ struct WebhookJsonPlaceholders {
 pub struct BBDaemonInner {
     paths : ProgramPaths,
     db : Option<database::Session>,
-    webhooks : Option<Vec<WebhookDescriptor>>,
 }
 
 
@@ -145,7 +139,6 @@ impl BBDaemon {
                 BBDaemonInner {
                     paths,
                     db : None,
-                    webhooks : Some(Vec::new()),
                 }
             ))
         })
@@ -224,25 +217,17 @@ impl BBDaemon {
                 };
 
                 log::debug!("Creating inner webhook descriptor for {}", name);
-                let descriptor_inner: Arc<Mutex<WebhookDescriptorInner>> = Arc::new(Mutex::new(WebhookDescriptorInner {
-                    path,
+                let descriptor: WebhookDescriptor = WebhookDescriptor {
                     name : webhook_config.name.clone(),
                     url : webhook_config.url,
                     webhook_type : webhook_config.webhook_type,
-                    period : period,
-                    placeholders: webhook_placeholders.placeholders.clone(),
-                    last: None,
-                }));
-
-                let descriptor = WebhookDescriptor { inner: descriptor_inner };
+                    period : period
+                };
 
                 log::debug!("Pushing webhook descriptor to self {}", name);
                 
                 self.inner.lock().expect("poisoned")
                     .db.as_mut().unwrap().set_webhook_parent(&descriptor)?;
-
-                self.inner.lock().expect("poisoned")
-                    .webhooks.as_mut().unwrap().push(descriptor);
 
                 for placeholder in webhook_placeholders.placeholders {
                     self.inner.lock().expect("poisoned").db.as_mut().unwrap()
@@ -382,7 +367,27 @@ fn update_loop(data: &mut Arc<Mutex<BBDaemonInner>>) -> () {
     // 7. Release the mutex
     // 8. Put the thread to sleep for `sleep_duration` seconds
 
+    let mut webhooks: &Vec<WebhookDescriptor>;
+
+    let mut period: f64;
+    let mut last: DateTime<Local>;
+    let mut next: DateTime<Local>;
+    let mut time_delta: TimeDelta;
+
     loop {
+
+        // 1. Lock the mutex
+        let mut m = data.lock().expect("poisoned");
+
+        // 2. Fetch the webhooks as a list sorted by next execution
+        let webhooks = m.db.as_ref().unwrap().get_webhook_status_data().unwrap();
+
+        for webhook in webhooks {
+            // TODO
+        }
+
+
+        drop(m);
         break;
     }
 }
