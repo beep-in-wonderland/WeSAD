@@ -216,15 +216,13 @@ impl BBDaemon {
                     _ => 0
                 };
 
-                log::debug!("Creating inner webhook descriptor for {}", name);
+                log::debug!("Creating webhook descriptor for {}", name);
                 let descriptor: WebhookDescriptor = WebhookDescriptor {
                     name : webhook_config.name.clone(),
                     url : webhook_config.url,
                     webhook_type : webhook_config.webhook_type,
                     period : period
                 };
-
-                log::debug!("Pushing webhook descriptor to self {}", name);
                 
                 self.inner.lock().expect("poisoned")
                     .db.as_mut().unwrap().set_webhook_parent(&descriptor)?;
