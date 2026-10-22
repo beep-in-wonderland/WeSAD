@@ -1,3 +1,10 @@
+mod constants;
+mod checker;
+mod execute;
+mod session;
+
+use constants::*;
+
 use std::fs::File;
 use std::ops::Not;
 
@@ -12,18 +19,6 @@ use crate::sqlite;
 use crate::errors;
 use crate::{info,error,debug,warn};
 
-const TAB_WEBHOOKS: &str = "webhooks";
-const COL_WEBHOOK_NAME: &str = "webhook";
-const COL_WEBHOOK_URL: &str = "url";
-const COL_WEBHOOK_TYPE: &str = "webhook_type";
-const COL_PERIOD: &str = "period";
-const COL_ORPHANED: &str = "orphaned";
-const COL_MESSAGE_ID: &str = "messageId";
-const COL_LAST: &str = "last";
-
-const TAB_PLACEHOLDERS: &str = "placeholders";
-const COL_WEBHOOK_PLACEHOLDER: &str = "placeholder";
-const COL_WEBHOOK_PLACEHOLDER_VALUE: &str = "value";
 
 enum BbdbLocations {
     VarLib,
