@@ -1,11 +1,10 @@
 // standard library imports
-use std::fs::{exists, File};
-use std::fs::read_dir;
+use std::fs::{exists, read_dir, File};
 use std::path::{Path, PathBuf};
 use std::env::current_dir;
 use std::env::args;
 use std::str::FromStr;
-use std::sync::{Arc,Mutex};
+use std::sync::{Arc,Mutex,MutexGuard};
 
 // all crates for the project
 use tokio; // task scheduling
@@ -18,7 +17,6 @@ use thiserror;
 use fern;
 use chrono;
 use fancy_regex;
-use mutex;
 
 use log::{info,warn,debug,error,Level};
 
@@ -105,7 +103,7 @@ fn main() -> Result<(), errors::Error> {
     init_logger(&cli_args.log_level, &paths.log);
 
     // Initialize the daemon
-    let mut daemon = bbnd::BBDaemon::init(paths).expect("An unexpected error occurred initializing the daemon.");
+    let mut daemon = bbnd::BBDaemon::new(paths).expect("An unexpected error occurred initializing the daemon.");
 
     // Run the daemon
     daemon.run()?;
