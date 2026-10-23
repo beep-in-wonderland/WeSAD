@@ -3,6 +3,43 @@ use crate::database::read::webhook_by_name;
 use super::*;
 
 
+/// Removes all records that are orphaned from the db
+pub fn drop_orphaned_values(session: &Session) -> Result<(), errors::Error> {
+
+    drop_orphaned_values_from_table(&session.connection, TAB_WEBHOOKS)?;
+    drop_orphaned_values_from_table(&session.connection, TAB_PLACEHOLDERS)?;
+
+    Ok(())
+}
+
+
+/// Takes the provided webhook and either updates the existing record or inserts it into the db.
+pub fn set_webhook_parent(session: &Session, webhook: &WebhookDescriptor) -> Result<(), errors::Error> {
+
+    let name = &webhook.name;
+
+    // If the webhook is already in the db table, update it. Otherwise, add it.
+    if read::webhook_by_name(&session, &name).is_some() {
+        update_webhook_parent(&session.connection, &webhook)
+    } else {
+        add_webhook_parent(&session.connection, &webhook)
+    }
+}
+
+
+/// Takes the provided placeholder and either updates or inserts it into the db depending if it exists already.
+pub fn set_webhook_placeholder(session: &Session, name: &String, placeholder: &String) -> Result<(), errors::Error> {
+    
+    // If the placeholder is already in the db table, update it. Otherwise, add it.
+    if read::placeholder_by_name(&session, name, placeholder).is_some() {
+        update_webhook_placeholder(&session.connection, &name, &placeholder)
+    } else {
+        add_webhook_placeholder(&session.connection, &name, &placeholder)
+    }
+
+}
+
+
 /// Called at initialization to set all the existing nodes in the db as `orphaned=true` by
 /// default. When the configs are read, any values that are still valid and required will
 /// have `orphaned=false` and remain in the tables.
@@ -57,16 +94,6 @@ fn set_placeholder_orphaned_by_name(connection: &Connection, name: &String, plac
 }
 
 
-/// Removes all records that are orphaned from the db
-pub fn drop_orphaned_values(session: &Session) -> Result<(), errors::Error> {
-
-    drop_orphaned_values_from_table(&session.connection, TAB_WEBHOOKS)?;
-    drop_orphaned_values_from_table(&session.connection, TAB_PLACEHOLDERS)?;
-
-    Ok(())
-}
-
-
 /// Helpder function for drop_orphaned_values() that removes all orphaned values from a provided table.
 fn drop_orphaned_values_from_table(connection: &Connection, table: &str) -> Result<(), errors::Error>{
 
@@ -77,20 +104,6 @@ fn drop_orphaned_values_from_table(connection: &Connection, table: &str) -> Resu
 
     debug!("Dropped orpaned values from {}", table);
     Ok(())
-}
-
-
-/// Takes the provided webhook and either updates the existing record or inserts it into the db.
-pub fn set_webhook_parent(session: &Session, webhook: &WebhookDescriptor) -> Result<(), errors::Error> {
-
-    let name = &webhook.name;
-
-    // If the webhook is already in the db table, update it. Otherwise, add it.
-    if read::webhook_by_name(&session, &name).is_some() {
-        update_webhook_parent(&session.connection, &webhook)
-    } else {
-        add_webhook_parent(&session.connection, &webhook)
-    }
 }
 
 
@@ -145,19 +158,6 @@ fn update_webhook_parent(connection: &Connection, webhook: &WebhookDescriptor) -
     statement.next()?;
 
     Ok(())
-}
-
-
-/// Takes the provided placeholder and either updates or inserts it into the db depending if it exists already.
-pub fn set_webhook_placeholder(session: &Session, name: &String, placeholder: &String) -> Result<(), errors::Error> {
-    
-    // If the placeholder is already in the db table, update it. Otherwise, add it.
-    if read::placeholder_by_name(&session, name, placeholder).is_some() {
-        update_webhook_placeholder(&session.connection, &name, &placeholder)
-    } else {
-        add_webhook_placeholder(&session.connection, &name, &placeholder)
-    }
-
 }
 
 

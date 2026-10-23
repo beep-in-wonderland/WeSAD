@@ -30,11 +30,6 @@ pub const TAB_PLACEHOLDERS: &str = "placeholders";
 pub const COL_WEBHOOK_PLACEHOLDER: &str = "placeholder";
 pub const COL_WEBHOOK_PLACEHOLDER_VALUE: &str = "value";
 
-enum BbdbLocations {
-    VarLib,
-    DebugState,
-    None,
-}
 
 pub struct Session {
     connection : sqlite::Connection,
