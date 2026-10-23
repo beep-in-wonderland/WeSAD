@@ -5,6 +5,7 @@ use std::ops::Not;
 use std::str::FromStr;
 use std::thread;
 
+use crate::database::Session;
 use crate::errors::Error::ArgumentErr;
 use crate::errors::Error::ConfigErr;
 use crate::read_dir;
@@ -16,8 +17,7 @@ use crate::tokio;
 use crate::dbus;
 use crate::daemonize;
 use crate::fancy_regex::Regex;
-use crate::{Arc,Mutex};
-use crate::mutex;
+use crate::{Arc,Mutex,MutexGuard};
 use crate::{info,error,debug,warn};
 
 use crate::{discord, smtp, database, errors};
@@ -28,7 +28,6 @@ use chrono::TimeDelta;
 use chrono::{NaiveDateTime, NaiveDate, Local, DateTime};
 use fancy_regex::Captures;
 use json::JsonValue;
-use mutex::MutexGuard;
 
 
 const PATH_WEBHOOKS_ETC: &str = "bbnd/webhooks.d";
@@ -119,46 +118,41 @@ struct WebhookJsonPlaceholders {
 }
 
 
-pub struct BBDaemonInner {
-    paths : ProgramPaths,
-    db : Option<database::Session>,
-}
-
-
 pub struct BBDaemon {
-    inner: Arc<Mutex<BBDaemonInner>>,
+    paths : ProgramPaths,
+    session : Arc<Mutex<database::Session>>,
 }
 
 
 impl BBDaemon {
 
     /// Initialization function of the daemon only requires that the paths be specified for this runtime.
-    pub fn init(paths: ProgramPaths) -> Result<Self, errors::Error> {
-        Ok (Self { inner : 
-            Arc::new(Mutex::new( 
-                BBDaemonInner {
+    pub fn new(paths: ProgramPaths) -> Result<Self, errors::Error> {
+        
+        // Initialize persistent local db.
+        let session = 
+            database::Session::init(&paths)
+            .expect("An unexpected error occurred initializing the database.");
+        
+        Ok (Self { 
                     paths,
-                    db : None,
-                }
-            ))
-        })
+                    session : Arc::new(Mutex::new(session)),
+            })
     }
 
     pub fn run(&mut self) -> Result<(), errors::Error> {
 
-        // Initialize persistent local db.
-        let session = Some(
-                database::Session::init(&self.inner.lock().expect("poisoned").paths)
-                .expect("An unexpected error occurred initializing the database."));
-        self.inner.lock().expect("poisoned").db = session;
+        
+        
 
         // Read configs and store data in db
         self.parse_all_webhook_configs()?;
 
-        // Drop all the orhpaned data from the db
-        self.inner.lock().expect("poisoned")
-            .db.as_mut().unwrap()
-            .drop_orphaned_values()?;
+        // Lock the session mutex and drop all orphaned values
+
+        let session = self.session.lock().expect("poisoned");
+        database::write::drop_orphaned_values(&session)?;
+        drop(session);
 
         // Spawn the update_loop thread with an Arc clone of the self.inner mutex to share data between threads
         // Will continuously send out webhook updates as defined by the webhook configs
@@ -178,7 +172,7 @@ impl BBDaemon {
 
     fn parse_all_webhook_configs(&mut self) -> Result<(), errors::Error> {
         log::debug!("Starting webhook parse");
-        let webhooks = read_dir(&self.inner.lock().expect("poisoned").paths.etc.join(PATH_WEBHOOKS_ETC))?;
+        let webhooks = read_dir(&self.paths.etc.join(PATH_WEBHOOKS_ETC))?;
         let mut webhook_path: PathBuf;
 
         let regex_conf = Regex::new(REGEX_CONF)?;
@@ -224,13 +218,14 @@ impl BBDaemon {
                     period : period
                 };
                 
-                self.inner.lock().expect("poisoned")
-                    .db.as_mut().unwrap().set_webhook_parent(&descriptor)?;
+                let session = self.session.lock().expect("poisoned");
+
+                database::write::set_webhook_parent(&session, &descriptor)?;
 
                 for placeholder in webhook_placeholders.placeholders {
-                    self.inner.lock().expect("poisoned").db.as_mut().unwrap()
-                        .set_webhook_placeholder(&webhook_config.name, &placeholder)?;
+                    database::write::set_webhook_placeholder(&session, &webhook_config.name, &placeholder)?;
                 }
+                drop(session);
             }
 
         }
@@ -240,10 +235,10 @@ impl BBDaemon {
 
     fn spawn_update_loop(&self) -> Result<(), errors::Error> {
 
-        let mut thread_bbnd = Arc::clone(&self.inner);
+        let session_arc = Arc::clone(&self.session);
 
         thread::spawn( move || {
-            update_loop(&mut thread_bbnd);
+            update_loop(&session_arc);
         });
         debug!("Update thread spawned successfully");
 
@@ -354,7 +349,7 @@ fn open_as_string(path: &String, name: &String, ext: &str) -> Result<String, err
 
 /// Continuously updates the `status` webhooks in the `BBDaemonInner` struct based on their individual
 /// update interval types and periods.
-fn update_loop(data: &mut Arc<Mutex<BBDaemonInner>>) -> () {
+fn update_loop(guard: &Arc<Mutex<Session>>) -> () {
     // Each iteration, the loop should:
     // 1. Lock the mutex
     // 2. Fetch all status type webhooks
@@ -375,17 +370,16 @@ fn update_loop(data: &mut Arc<Mutex<BBDaemonInner>>) -> () {
     loop {
 
         // 1. Lock the mutex
-        let mut m = data.lock().expect("poisoned");
+        let session = &guard.lock().expect("poisoned");
 
         // 2. Fetch the webhooks as a list sorted by next execution
-        let webhooks = m.db.as_ref().unwrap().get_webhook_status_data().unwrap();
+        let webhooks = database::read::webhook_statuses(&session);
 
         for webhook in webhooks {
             // TODO
         }
 
-
-        drop(m);
+        drop(session);
         break;
     }
 }
