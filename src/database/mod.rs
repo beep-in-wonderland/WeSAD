@@ -39,7 +39,7 @@ pub struct Session {
 pub struct WebhookStatus {
     pub name: String,
     pub url: String,
-    pub period: f64,
+    pub period: crate::bbnd::period::Period,
     pub last: u64,
     pub msg_id: u64,
 }

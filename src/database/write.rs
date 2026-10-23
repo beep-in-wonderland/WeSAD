@@ -112,7 +112,7 @@ fn add_webhook_parent(connection: &Connection, webhook: &WebhookDescriptor) -> R
 
     let query = format!("INSERT INTO 
             {TAB_WEBHOOKS} ({COL_WEBHOOK_NAME}, {COL_WEBHOOK_URL}, {COL_WEBHOOK_TYPE}, {COL_PERIOD}, {COL_ORPHANED}, {COL_LAST}, {COL_MESSAGE_ID}) 
-            VALUES (:name, :url, :type, :period, '0', '0', '0')");
+            VALUES (:name, :url, :type, :period, '0', 0, '0')");
 
     let mut statement = connection.prepare(query).unwrap();
 
@@ -122,7 +122,7 @@ fn add_webhook_parent(connection: &Connection, webhook: &WebhookDescriptor) -> R
         (":name", webhook.name.clone().into()),
         (":url", webhook.url.clone().into()),
         (":type", webhook.webhook_type.to_string().into()),
-        (":period", webhook.period.into()),
+        (":period", webhook.period.get().into()),
     ])?;
 
     statement.next()?;
@@ -152,7 +152,7 @@ fn update_webhook_parent(connection: &Connection, webhook: &WebhookDescriptor) -
         (":name", webhook.name.clone().into()),
         (":url", webhook.url.clone().into()),
         (":type", webhook.webhook_type.to_string().into()),
-        (":period", webhook.period.into()),
+        (":period", webhook.period.get().into()),
     ])?;
 
     statement.next()?;
