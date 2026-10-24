@@ -29,7 +29,7 @@ pub fn parse_webhook_config(path: &String, name: &String) -> Result<WebhookConfi
         url : conf_json["url"].to_string(), 
         webhook_type : WebhookType::from_str(conf_json["type"].as_str().unwrap()).unwrap(), 
         interval : conf_json["interval"].to_string(),
-        period : conf_json["period"].as_f64().unwrap(),
+        period : conf_json["period"].as_i64().unwrap(),
     })
 }
 

@@ -58,12 +58,12 @@ pub fn webhook_statuses(session: &Session) -> Result<Vec<WebhookStatus>, errors:
         while let sqlite::State::Row = statement.next()? {
             let name = statement.read::<String, _>(COL_WEBHOOK_NAME)?;
             let url = statement.read::<String, _>(COL_WEBHOOK_URL)?;
-            let period = statement.read::<f64, _>(COL_PERIOD)?;
+            let period = statement.read::<i64, _>(COL_PERIOD)?;
             let last = statement.read::<String, _>(COL_LAST)?;
             let msg_id = statement.read::<String, _>(COL_MESSAGE_ID)?;
             result.push(
                 WebhookStatus { 
-                    name, url, period: period.into(), last : last.parse::<u64>().unwrap(), msg_id : msg_id.parse::<u64>().unwrap()
+                    name, url, period: period.into(), last : last.parse::<i64>().unwrap(), msg_id : msg_id.parse::<u64>().unwrap()
                 }
             )
 

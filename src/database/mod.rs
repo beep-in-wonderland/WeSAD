@@ -10,7 +10,7 @@ use std::ops::Not;
 
 use dbus::arg::RefArg;
 
-use crate::bbnd::WebhookDescriptor;
+use crate::daemon::WebhookDescriptor;
 use crate::{Path,PathBuf};
 use crate::ProgramPaths;
 use crate::sqlite::{self, Connection};
@@ -39,9 +39,18 @@ pub struct Session {
 pub struct WebhookStatus {
     pub name: String,
     pub url: String,
-    pub period: crate::bbnd::period::Period,
-    pub last: u64,
+    pub period: crate::daemon::period::Period,
+    pub last: i64,
     pub msg_id: u64,
+}
+
+
+impl WebhookStatus {
+    pub fn should_update(&self, now: &i64) -> bool {
+
+        *now > (self.last + self.period.get())
+
+    }
 }
 
 

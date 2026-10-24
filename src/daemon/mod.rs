@@ -13,18 +13,15 @@ use crate::PathBuf;
 use crate::File;
 
 use crate::ProgramPaths;
-use crate::tokio;
-use crate::dbus;
-use crate::daemonize;
 use crate::fancy_regex::Regex;
-use crate::{Arc,Mutex,MutexGuard};
+use crate::{Arc,Mutex};
 use crate::{info,error,debug,warn};
 use crate::{discord, smtp, database, errors};
 use crate::json;
 
 use chrono;
 use chrono::TimeDelta;
-use chrono::{NaiveDateTime, NaiveDate, Local, DateTime};
+use chrono::{NaiveDateTime, NaiveDate, Local, DateTime, Duration};
 use fancy_regex::Captures;
 use json::JsonValue;
 
@@ -112,7 +109,7 @@ struct WebhookConfigContents {
     url : String,
     webhook_type: WebhookType,
     interval: String,
-    period: f64,
+    period: i64,
 }
 
 
@@ -121,13 +118,13 @@ struct WebhookJsonPlaceholders {
 }
 
 
-pub struct BBDaemon {
+pub struct Daemon {
     paths : ProgramPaths,
     session : Arc<Mutex<database::Session>>,
 }
 
 
-impl BBDaemon {
+impl Daemon {
 
     /// Initialization function of the daemon only requires that the paths be specified for this runtime.
     pub fn new(paths: ProgramPaths) -> Result<Self, errors::Error> {
@@ -156,10 +153,10 @@ impl BBDaemon {
 
 
         // Spawns a thread to continuously update webhooks with current database values
-        updater::start(Arc::clone(&self.session)).expect("Program does nothing if this fails");
+        updater::run(Arc::clone(&self.session)).expect("Program does nothing if this fails");
 
         // Spawns a thread to continuously listen for & execute database updates
-        listener::start(Arc::clone(&self.session)).expect("Program does nothing if this fails");
+        listener::run(Arc::clone(&self.session)).expect("Program does nothing if this fails");
 
         Ok (())
     }
