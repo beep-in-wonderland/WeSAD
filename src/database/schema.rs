@@ -31,7 +31,6 @@ pub(super) fn init_db_from_fresh(db_path: &PathBuf) -> Result<Connection, errors
 
     create_webhook_parent_table(&connection)?;
     create_placeholder_table(&connection)?;
-    create_payload_table(&connection)?;
 
     Ok(connection)
 }
@@ -45,6 +44,7 @@ fn create_webhook_parent_table(connection: &Connection) -> Result<(), errors::Er
                             {COL_WEBHOOK_NAME} VARCHAR(20),
                             {COL_WEBHOOK_URL} VARCHAR(150),
                             {COL_WEBHOOK_TYPE} VARCHAR(10),
+                            {COL_PATH} VARCHAR(200),
                             {COL_PERIOD} REAL,
                             {COL_ORPHANED} INTEGER,
                             {COL_MESSAGE_ID} TEXT,
@@ -66,21 +66,6 @@ fn create_placeholder_table(connection: &Connection) -> Result<(), errors::Error
                             {COL_WEBHOOK_PLACEHOLDER} VARCHAR(40),
                             {COL_WEBHOOK_PLACEHOLDER_VALUE} VARCHAR(10),
                             {COL_ORPHANED} INTEGER
-                            )
-                        ");
-
-    connection.execute(query)?;
-
-    Ok(())
-}
-
-
-fn create_payload_table(connection: &Connection) -> Result<(), errors::Error>{
-    debug!("Creating webhook placeholder table");
-    let query = format!("CREATE TABLE IF NOT EXISTS {TAB_PAYLOAD} (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            {COL_WEBHOOK_NAME} VARCHAR(20),
-                            {COL_PATH} VARCHAR(200)
                             )
                         ");
 

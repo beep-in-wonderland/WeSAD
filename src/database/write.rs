@@ -43,12 +43,6 @@ pub fn set_webhook_placeholders(session: &Session, name: &String, placeholders: 
 }
 
 
-pub fn set_webhook_payload(session: &Session, name: &String, path: &String) -> Result<(), errors::Error> {
-
-    Ok(())
-}
-
-
 /// Called at initialization to set all the existing nodes in the db as `orphaned=true` by
 /// default. When the configs are read, any values that are still valid and required will
 /// have `orphaned=false` and remain in the tables.
@@ -121,8 +115,9 @@ fn drop_orphaned_values_from_table(connection: &Connection, table: &str) -> Resu
 fn add_webhook_parent(connection: &Connection, webhook: &webhook::Descriptor) -> Result<(), errors::Error> {
 
     let query = format!("INSERT INTO 
-            {TAB_WEBHOOKS} ({COL_WEBHOOK_NAME}, {COL_WEBHOOK_URL}, {COL_WEBHOOK_TYPE}, {COL_PERIOD}, {COL_ORPHANED}, {COL_LAST}, {COL_MESSAGE_ID}) 
-            VALUES (:name, :url, :type, :period, '0', 0, '0')");
+            {TAB_WEBHOOKS} ({COL_WEBHOOK_NAME}, {COL_WEBHOOK_URL}, {COL_WEBHOOK_TYPE},
+            {COL_PATH}, {COL_PERIOD}, {COL_ORPHANED}, {COL_LAST}, {COL_MESSAGE_ID}) 
+            VALUES (:name, :url, :type, :path, :period, '0', 0, '0')");
 
     let mut statement = connection.prepare(query).unwrap();
 
@@ -132,6 +127,7 @@ fn add_webhook_parent(connection: &Connection, webhook: &webhook::Descriptor) ->
         (":name", webhook.name.clone().into()),
         (":url", webhook.url.clone().into()),
         (":type", webhook.webhook_type.to_string().into()),
+        (":path", webhook.path.to_string().into()),
         (":period", webhook.period.get().into()),
     ])?;
 
@@ -149,7 +145,8 @@ fn update_webhook_parent(connection: &Connection, webhook: &webhook::Descriptor)
                 {TAB_WEBHOOKS} 
             SET
                 {COL_WEBHOOK_URL}=:url, 
-                {COL_WEBHOOK_TYPE}=:type, 
+                {COL_WEBHOOK_TYPE}=:type,
+                {COL_PATH}=:path,
                 {COL_PERIOD}=:period, 
                 {COL_ORPHANED}='0'
             WHERE 
@@ -162,6 +159,7 @@ fn update_webhook_parent(connection: &Connection, webhook: &webhook::Descriptor)
         (":name", webhook.name.clone().into()),
         (":url", webhook.url.clone().into()),
         (":type", webhook.webhook_type.to_string().into()),
+        (":path", webhook.path.to_string().into()),
         (":period", webhook.period.get().into()),
     ])?;
 

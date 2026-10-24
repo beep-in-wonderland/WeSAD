@@ -41,6 +41,7 @@ pub struct Descriptor {
     pub name : String,
     pub url : String,
     pub webhook_type: Type,
+    pub path: String,
     pub period: Period,
 }
 
@@ -66,6 +67,7 @@ impl Display for Descriptor {
 pub struct Status {
     pub name: String,
     pub url: String,
+    pub path: String,
     pub period: webhook::Period,
     pub last: i64,
     pub msg_id: u64,
@@ -76,9 +78,6 @@ impl Status {
     pub fn should_update(&self, now: &i64) -> bool {
         *now > (self.last + self.period.get())
     }
-
-
-
 }
 
 

@@ -25,9 +25,13 @@ use chrono::{NaiveDateTime, NaiveDate, Local, DateTime, Duration};
 use fancy_regex::Captures;
 use json::JsonValue;
 
+
 mod listener;
 mod updater;
 mod io;
+
+#[cfg(test)]
+mod tests;
 
 const PATH_WEBHOOKS_ETC: &str = "bbnd/webhooks.d";
 
@@ -105,7 +109,7 @@ impl Daemon {
         let mut name: String;
 
         let mut webhook_config: WebhookConfigContents;
-        let mut webhook_placeholders: Vec<String> = Vec::new();
+        let mut webhook_placeholders: Vec<String>;
 
 
         for webhook in webhooks {
@@ -135,6 +139,7 @@ impl Daemon {
                     name : webhook_config.name.clone(),
                     url : webhook_config.url,
                     webhook_type : webhook_config.webhook_type,
+                    path,
                     period : period
                 };
                 
@@ -142,7 +147,6 @@ impl Daemon {
 
                 database::write::set_webhook_parent(&session, &descriptor)?;
                 database::write::set_webhook_placeholders(&session, &webhook_config.name, &webhook_placeholders)?;
-                database::write::set_webhook_payload(&session, &name, &path)?;
 
             }
 

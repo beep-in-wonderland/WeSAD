@@ -1,5 +1,6 @@
 use super::*;
-use crate::thread;
+use crate::{daemon::io::open_as_string, thread};
+use crate::HashMap;
 
 /// Spawns a thread which continuously updates status type webhooks with session db values
 pub fn run(guard: Arc<Mutex<Session>>) -> Result<(), errors::Error> {
@@ -38,7 +39,7 @@ fn update_loop(guard: Arc<Mutex<Session>>) -> (){
 
         // 2. Fetch the webhooks as a list sorted by next execution
         let webhooks = database::read::webhook_statuses(&session).unwrap();
-
+        
         // 3. Release the mutex guard 
         drop(session);
 
@@ -46,7 +47,7 @@ fn update_loop(guard: Arc<Mutex<Session>>) -> (){
 
         for webhook in webhooks {
             if webhook.should_update(&now_millis) {
-                update_status_webhook(&webhook);
+                update_status_webhook(&guard, &webhook);
             }
         }
 
@@ -60,9 +61,38 @@ fn update_loop(guard: Arc<Mutex<Session>>) -> (){
 fn sleep_to_retry(duration: Duration) {}
 
 
-fn update_status_webhook(status: &webhook::Status) -> () {
+fn update_status_webhook(guard: &Arc<Mutex<Session>>, status: &webhook::Status) -> Result<(), errors::Error> {
 
-    
-    
+    let mut content = open_as_string(&status.path, &status.name, ".json")?;
+    set_placeholder_data(&guard, &mut content, &status.name)?;
+
+    Ok(())
 }
 
+
+fn set_placeholder_data(guard: &Arc<Mutex<Session>>, content: &mut String, name: &String) -> Result<(), errors::Error> {
+    
+    let session = guard.lock().expect("poisoned");
+    let placeholder_map = database::read::all_placeholders_by_webhook_name(&session, name)?;
+    // Release the mutex lock
+    drop(session);
+
+    do_placeholder_replacements(placeholder_map, content)
+}
+
+
+pub(super) fn do_placeholder_replacements(map: HashMap<String, String>, content: &mut String) -> Result<(), errors::Error> {
+
+    let mut temp: String = content.clone();
+
+    for (k, v) in map.iter() {
+        temp = temp.replace(
+            &format!("$${k}$$"),
+            v
+        );
+    }
+
+    content.clone_from(&temp);
+
+    Ok(())
+}

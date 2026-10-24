@@ -8,6 +8,7 @@ use std::str::FromStr;
 use std::sync::{Arc,Mutex,MutexGuard};
 use std::net::TcpListener;
 use std::thread;
+use std::collections::HashMap;
 
 // all crates for the project
 use daemonize;
@@ -96,7 +97,7 @@ fn main() -> Result<(), errors::Error> {
     let mut cli_args = parse_cli_args().unwrap(); 
 
     // Important runtime variables
-    let is_dev_build: bool = check_dev_build().unwrap();
+    let is_dev_build: bool = check_dev_build().expect("Must be able to discern dev build or not.");
     let paths: ProgramPaths = ProgramPaths::init(is_dev_build);
 
     // Initialize the logger
@@ -114,8 +115,8 @@ fn main() -> Result<(), errors::Error> {
 
 
 /// Check whether the program is running as a precompiled binary or if it is running
-/// in the dev build. This is done by checking whether the dir ``../../state`` exists,
-/// AND whether the file ``../../target/debug/bbnd`` exists.
+/// in the dev build. This is done by checking whether some of the various dev directories
+/// exist.
 fn check_dev_build() -> Result<bool, errors::Error> {
 
     debug!("Checking for dev build...");

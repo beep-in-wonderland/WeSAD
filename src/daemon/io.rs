@@ -42,7 +42,7 @@ pub fn parse_webhook_json_placeholders(path: &String, name: &String) -> Result<V
     let json_str: &String = &open_as_string(path, name, ".json")?;
 
     let re = Regex::new(REGEX_PLACEHOLDERS)?;
-    let mut matches = re.captures_iter(json_str);
+    let matches = re.captures_iter(json_str);
 
     for regmatch in matches {
         placeholders.push(regmatch.unwrap().get(2).unwrap().as_str().to_string());
