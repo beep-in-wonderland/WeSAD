@@ -1,21 +1,22 @@
 // standard library imports
 use std::fs::{exists, read_dir, File};
+use std::fmt::Display;
 use std::path::{Path, PathBuf};
 use std::env::current_dir;
 use std::env::args;
 use std::str::FromStr;
 use std::sync::{Arc,Mutex,MutexGuard};
+use std::net::TcpListener;
+use std::thread;
 
 // all crates for the project
-use tokio; // task scheduling
 use daemonize;
-use dbus; // communication with external programs
 use mail_send; // SMTP email sending
 use sqlite; // managing persistent data
 use json; // parsing config files
-use thiserror;
-use fern;
-use chrono;
+use thiserror; // error macros
+use fern; // logging
+use chrono; // timing
 use fancy_regex;
 
 use log::{info,warn,debug,error,Level};
@@ -23,11 +24,10 @@ use log::{info,warn,debug,error,Level};
 
 // separate custom modules
 mod database; // Database management module using SQLite3
-mod bbnd;
-mod discord;
+mod daemon;
 mod smtp;
 mod errors;
-
+mod webhook;
 
 // Relevant paths for folders 
 pub struct ProgramPaths {
@@ -103,7 +103,7 @@ fn main() -> Result<(), errors::Error> {
     init_logger(&cli_args.log_level, &paths.log);
 
     // Initialize the daemon
-    let mut daemon = bbnd::BBDaemon::new(paths).expect("An unexpected error occurred initializing the daemon.");
+    let mut daemon = daemon::Daemon::new(paths).expect("An unexpected error occurred initializing the daemon.");
 
     // Run the daemon
     daemon.run()?;

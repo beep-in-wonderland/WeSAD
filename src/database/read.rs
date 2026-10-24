@@ -1,3 +1,5 @@
+use crate::webhook;
+
 use super::*;
 
 
@@ -34,7 +36,7 @@ pub fn placeholder_by_name(session: &Session, name: &String, placeholder: &Strin
 }
 
 
-pub fn webhook_statuses(session: &Session) -> Result<Vec<WebhookStatus>, errors::Error> {
+pub fn webhook_statuses(session: &Session) -> Result<Vec<webhook::Status>, errors::Error> {
         
         let mut result = Vec::new();
         let query:String = format!("
@@ -58,12 +60,12 @@ pub fn webhook_statuses(session: &Session) -> Result<Vec<WebhookStatus>, errors:
         while let sqlite::State::Row = statement.next()? {
             let name = statement.read::<String, _>(COL_WEBHOOK_NAME)?;
             let url = statement.read::<String, _>(COL_WEBHOOK_URL)?;
-            let period = statement.read::<f64, _>(COL_PERIOD)?;
+            let period = statement.read::<i64, _>(COL_PERIOD)?;
             let last = statement.read::<String, _>(COL_LAST)?;
             let msg_id = statement.read::<String, _>(COL_MESSAGE_ID)?;
             result.push(
-                WebhookStatus { 
-                    name, url, period: period.into(), last : last.parse::<u64>().unwrap(), msg_id : msg_id.parse::<u64>().unwrap()
+                webhook::Status { 
+                    name, url, period: period.into(), last : last.parse::<i64>().unwrap(), msg_id : msg_id.parse::<u64>().unwrap()
                 }
             )
 
@@ -73,3 +75,17 @@ pub fn webhook_statuses(session: &Session) -> Result<Vec<WebhookStatus>, errors:
     }
 
 
+pub fn payload_path(session: &Session, name: &String) -> Option<String> {
+
+    let query: &str = "SELECT path FROM payloads WHERE webhook=:name LIMIT 1";
+    let mut statement = session.connection.prepare(query).unwrap();
+
+    statement.bind((":name",name.as_str())).unwrap();
+    statement.next().unwrap();
+    statement.read::<String, usize>(1).map_or(
+        None, 
+        |s| {
+        Some(s.parse::<String>().unwrap())
+    })
+
+}

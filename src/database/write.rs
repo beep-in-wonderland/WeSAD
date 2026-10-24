@@ -1,4 +1,4 @@
-use crate::database::read::webhook_by_name;
+use crate::{database::read::webhook_by_name, webhook};
 
 use super::*;
 
@@ -14,7 +14,7 @@ pub fn drop_orphaned_values(session: &Session) -> Result<(), errors::Error> {
 
 
 /// Takes the provided webhook and either updates the existing record or inserts it into the db.
-pub fn set_webhook_parent(session: &Session, webhook: &WebhookDescriptor) -> Result<(), errors::Error> {
+pub fn set_webhook_parent(session: &Session, webhook: &webhook::Descriptor) -> Result<(), errors::Error> {
 
     let name = &webhook.name;
 
@@ -28,15 +28,24 @@ pub fn set_webhook_parent(session: &Session, webhook: &WebhookDescriptor) -> Res
 
 
 /// Takes the provided placeholder and either updates or inserts it into the db depending if it exists already.
-pub fn set_webhook_placeholder(session: &Session, name: &String, placeholder: &String) -> Result<(), errors::Error> {
+pub fn set_webhook_placeholders(session: &Session, name: &String, placeholders: &Vec<String>) -> Result<(), errors::Error> {
     
-    // If the placeholder is already in the db table, update it. Otherwise, add it.
-    if read::placeholder_by_name(&session, name, placeholder).is_some() {
-        update_webhook_placeholder(&session.connection, &name, &placeholder)
-    } else {
-        add_webhook_placeholder(&session.connection, &name, &placeholder)
+    for placeholder in placeholders {
+        // If the placeholder is already in the db table, update it. Otherwise, add it.
+        if read::placeholder_by_name(&session, name, &placeholder).is_some() {
+            update_webhook_placeholder(&session.connection, &name, &placeholder)?;
+        } else {
+            add_webhook_placeholder(&session.connection, &name, &placeholder)?;
+        }
     }
+    Ok(())
 
+}
+
+
+pub fn set_webhook_payload(session: &Session, name: &String, path: &String) -> Result<(), errors::Error> {
+
+    Ok(())
 }
 
 
@@ -74,6 +83,7 @@ fn set_webhook_orphaned_by_name(connection: &Connection, name: &String, val: boo
     Ok(())
 }
 
+
 /// Sets the `orphaned` flag of a specific table record to `val`
 fn set_placeholder_orphaned_by_name(connection: &Connection, name: &String, placeholder: &String, val: bool) -> Result<(), errors::Error> {
 
@@ -108,7 +118,7 @@ fn drop_orphaned_values_from_table(connection: &Connection, table: &str) -> Resu
 
 
 /// Helper function for set_webhook_parent(). Inserts the webhook as a new entry in the table.
-fn add_webhook_parent(connection: &Connection, webhook: &WebhookDescriptor) -> Result<(), errors::Error> {
+fn add_webhook_parent(connection: &Connection, webhook: &webhook::Descriptor) -> Result<(), errors::Error> {
 
     let query = format!("INSERT INTO 
             {TAB_WEBHOOKS} ({COL_WEBHOOK_NAME}, {COL_WEBHOOK_URL}, {COL_WEBHOOK_TYPE}, {COL_PERIOD}, {COL_ORPHANED}, {COL_LAST}, {COL_MESSAGE_ID}) 
@@ -132,7 +142,7 @@ fn add_webhook_parent(connection: &Connection, webhook: &WebhookDescriptor) -> R
 
 
 /// Helper function for set_webhook_parent(). Updates the webhook instead of inserting a new entry.
-fn update_webhook_parent(connection: &Connection, webhook: &WebhookDescriptor) -> Result<(), errors::Error> {
+fn update_webhook_parent(connection: &Connection, webhook: &webhook::Descriptor) -> Result<(), errors::Error> {
 
     let query = format!("
             UPDATE 
