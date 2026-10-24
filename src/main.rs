@@ -1,5 +1,6 @@
 // standard library imports
 use std::fs::{exists, read_dir, File};
+use std::fmt::Display;
 use std::path::{Path, PathBuf};
 use std::env::current_dir;
 use std::env::args;
@@ -24,7 +25,6 @@ use log::{info,warn,debug,error,Level};
 // separate custom modules
 mod database; // Database management module using SQLite3
 mod daemon;
-mod discord;
 mod smtp;
 mod errors;
 mod webhook;

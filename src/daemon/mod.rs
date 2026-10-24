@@ -1,5 +1,4 @@
 use core::fmt;
-use std::fmt::Display;
 use std::io::Read;
 use std::ops::Not;
 use std::str::FromStr;
@@ -14,9 +13,10 @@ use crate::File;
 
 use crate::ProgramPaths;
 use crate::fancy_regex::Regex;
+use crate::webhook;
 use crate::{Arc,Mutex};
 use crate::{info,error,debug,warn};
-use crate::{discord, smtp, database, errors};
+use crate::{smtp, database, errors};
 use crate::json;
 
 use chrono;
@@ -25,8 +25,6 @@ use chrono::{NaiveDateTime, NaiveDate, Local, DateTime, Duration};
 use fancy_regex::Captures;
 use json::JsonValue;
 
-
-pub mod period;
 mod listener;
 mod updater;
 mod io;
@@ -42,79 +40,13 @@ const PATH_WEBHOOKS_ETC: &str = "bbnd/webhooks.d";
 const REGEX_CONF: &str = "(?<dir>^[(?:\\/|\\\\)0-9a-zA-Z_\\- ]+(?:\\.d)?(?:\\/|\\\\))(?<name>[0-9a-zA-Z_\\-. ]+)(?<ext>\\.conf)$";
 const REGEX_PLACEHOLDERS: &str = "(\\$\\$(?<flag>[\\w]+)\\$\\$)";
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum WebhookType {
-    STATUS,
-    ALERT,
-}
-
-
-impl FromStr for WebhookType {
-
-    type Err = ();
-
-    fn from_str(str: &str) -> Result<WebhookType, Self::Err> {
-
-        match str.to_lowercase().trim() {
-            "status" => Ok(WebhookType::STATUS),
-            "alert"  => Ok(WebhookType::ALERT),
-            _        => Err(()),
-        }
-    }
-
-}
-
-
-impl Display for WebhookType {
-
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-
-        match self {
-            WebhookType::ALERT => write!(f, "alert"),
-            WebhookType::STATUS => write!(f, "status"),
-        }
-    }
-}
-
-
-#[derive(Clone)]
-pub struct WebhookDescriptor {
-    pub name : String,
-    pub url : String,
-    pub webhook_type: WebhookType,
-    pub period: period::Period,
-}
-
-
-impl Display for WebhookDescriptor {
-
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "
-            Webhook {}
-            url: {}
-            type: {}
-            period: {}
-            ", 
-            self.name,
-            self.url,
-            self.webhook_type,
-            self.period.to_string(),
-        )
-    }
-}
-
 
 struct WebhookConfigContents {
     name : String,
     url : String,
-    webhook_type: WebhookType,
+    webhook_type: webhook::Type,
     interval: String,
     period: i64,
-}
-
-
-struct WebhookJsonPlaceholders {
-    placeholders : Vec<String>,
 }
 
 
@@ -173,7 +105,7 @@ impl Daemon {
         let mut name: String;
 
         let mut webhook_config: WebhookConfigContents;
-        let mut webhook_placeholders: WebhookJsonPlaceholders;
+        let mut webhook_placeholders: Vec<String> = Vec::new();
 
 
         for webhook in webhooks {
@@ -195,11 +127,11 @@ impl Daemon {
                 webhook_placeholders = io::parse_webhook_json_placeholders(&path, &name)?;
 
                 // Calculate the period, in seconds, based on `interval` and `period`
-                let period= period::Period::from_type_value(
+                let period= webhook::Period::from_type_value(
                    &webhook_config.interval, webhook_config.period);
 
                 log::debug!("Creating webhook descriptor for {}", name);
-                let descriptor: WebhookDescriptor = WebhookDescriptor {
+                let descriptor: webhook::Descriptor = webhook::Descriptor {
                     name : webhook_config.name.clone(),
                     url : webhook_config.url,
                     webhook_type : webhook_config.webhook_type,
@@ -209,10 +141,9 @@ impl Daemon {
                 let session = self.session.lock().expect("poisoned");
 
                 database::write::set_webhook_parent(&session, &descriptor)?;
+                database::write::set_webhook_placeholders(&session, &webhook_config.name, &webhook_placeholders)?;
+                database::write::set_webhook_payload(&session, &name, &path)?;
 
-                for placeholder in webhook_placeholders.placeholders {
-                    database::write::set_webhook_placeholder(&session, &webhook_config.name, &placeholder)?;
-                }
             }
 
         }

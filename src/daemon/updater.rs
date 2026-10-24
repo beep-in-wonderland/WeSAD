@@ -23,7 +23,7 @@ fn update_loop(guard: Arc<Mutex<Session>>) -> (){
     // 7. Release the mutex
     // 8. Put the thread to sleep for `sleep_duration` seconds
 
-    let mut webhooks: &Vec<WebhookDescriptor>;
+    let mut webhooks: &Vec<webhook::Status>;
 
     let mut period: f64;
     let mut last_millis: i64 = 0;
@@ -46,11 +46,9 @@ fn update_loop(guard: Arc<Mutex<Session>>) -> (){
 
         for webhook in webhooks {
             if webhook.should_update(&now_millis) {
-                webhook.send()
+                update_status_webhook(&webhook);
             }
         }
-
-
 
         break;
     }
@@ -60,3 +58,11 @@ fn update_loop(guard: Arc<Mutex<Session>>) -> (){
 
 
 fn sleep_to_retry(duration: Duration) {}
+
+
+fn update_status_webhook(status: &webhook::Status) -> () {
+
+    
+    
+}
+

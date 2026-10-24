@@ -27,14 +27,14 @@ pub fn parse_webhook_config(path: &String, name: &String) -> Result<WebhookConfi
     Ok(WebhookConfigContents { 
         name: name.clone(),
         url : conf_json["url"].to_string(), 
-        webhook_type : WebhookType::from_str(conf_json["type"].as_str().unwrap()).unwrap(), 
+        webhook_type : webhook::Type::from_str(conf_json["type"].as_str().unwrap()).unwrap(), 
         interval : conf_json["interval"].to_string(),
         period : conf_json["period"].as_i64().unwrap(),
     })
 }
 
 
-pub fn parse_webhook_json_placeholders(path: &String, name: &String) -> Result<WebhookJsonPlaceholders, errors::Error> {
+pub fn parse_webhook_json_placeholders(path: &String, name: &String) -> Result<Vec<String>, errors::Error> {
 
     let mut placeholders = Vec::new();
 
@@ -48,7 +48,5 @@ pub fn parse_webhook_json_placeholders(path: &String, name: &String) -> Result<W
         placeholders.push(regmatch.unwrap().get(2).unwrap().as_str().to_string());
     }
 
-    Ok(WebhookJsonPlaceholders {
-        placeholders,
-    })
+    Ok(placeholders)
 }

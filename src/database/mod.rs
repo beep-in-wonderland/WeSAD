@@ -9,8 +9,6 @@ use std::fs::File;
 use std::ops::Not;
 
 use dbus::arg::RefArg;
-
-use crate::daemon::WebhookDescriptor;
 use crate::{Path,PathBuf};
 use crate::ProgramPaths;
 use crate::sqlite::{self, Connection};
@@ -30,27 +28,12 @@ pub const TAB_PLACEHOLDERS: &str = "placeholders";
 pub const COL_WEBHOOK_PLACEHOLDER: &str = "placeholder";
 pub const COL_WEBHOOK_PLACEHOLDER_VALUE: &str = "value";
 
+pub const TAB_PAYLOAD: &str = "payloads";
+pub const COL_PATH: &str = "path";
+
 
 pub struct Session {
     connection : sqlite::Connection,
-}
-
-
-pub struct WebhookStatus {
-    pub name: String,
-    pub url: String,
-    pub period: crate::daemon::period::Period,
-    pub last: i64,
-    pub msg_id: u64,
-}
-
-
-impl WebhookStatus {
-    pub fn should_update(&self, now: &i64) -> bool {
-
-        *now > (self.last + self.period.get())
-
-    }
 }
 
 
