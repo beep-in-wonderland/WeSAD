@@ -59,6 +59,7 @@ impl Session {
         Ok(Self {connection,})
     }
 
+
     fn open_db_at_path(db_path: &PathBuf) -> Result<Connection, errors::Error> {
         if Path::exists(db_path) {
             schema::init_db_from_existing(db_path)

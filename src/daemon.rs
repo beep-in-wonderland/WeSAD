@@ -3,6 +3,7 @@ use std::io::Read;
 use std::ops::Not;
 use std::str::FromStr;
 use std::thread;
+use std::thread::JoinHandle;
 
 use crate::database::Session;
 use crate::errors::Error::ArgumentErr;
@@ -76,7 +77,7 @@ impl Daemon {
             })
     }
 
-    pub fn run(&mut self) -> Result<(), errors::Error> {
+    pub fn run(&mut self) -> Result<(JoinHandle<()>, JoinHandle<()>), errors::Error> {
 
         // Read configs and store data in db
         self.parse_all_webhook_configs()?;
@@ -89,12 +90,12 @@ impl Daemon {
 
 
         // Spawns a thread to continuously update webhooks with current database values
-        updater::run(Arc::clone(&self.session)).expect("Program does nothing if this fails");
+        let updater_handle = updater::run(Arc::clone(&self.session)).expect("Program does nothing if this fails");
 
         // Spawns a thread to continuously listen for & execute database updates
-        listener::run(Arc::clone(&self.session)).expect("Program does nothing if this fails");
+        let listener_handle = listener::run(Arc::clone(&self.session)).expect("Program does nothing if this fails");
 
-        Ok (())
+        Ok ((updater_handle, listener_handle))
     }
 
 
@@ -145,8 +146,8 @@ impl Daemon {
                 
                 let session = self.session.lock().expect("poisoned");
 
-                database::write::set_webhook_parent(&session, &descriptor)?;
-                database::write::set_webhook_placeholders(&session, &webhook_config.name, &webhook_placeholders)?;
+                database::write::init_webhook_parent(&session, &descriptor)?;
+                database::write::init_webhook_placeholders(&session, &webhook_config.name, &webhook_placeholders)?;
 
             }
 

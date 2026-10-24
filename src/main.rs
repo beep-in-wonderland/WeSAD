@@ -7,7 +7,7 @@ use std::env::args;
 use std::str::FromStr;
 use std::sync::{Arc,Mutex,MutexGuard};
 use std::net::TcpListener;
-use std::thread;
+use std::thread::{self, JoinHandle};
 use std::collections::HashMap;
 
 // all crates for the project
@@ -19,6 +19,7 @@ use thiserror; // error macros
 use fern; // logging
 use chrono; // timing
 use fancy_regex;
+use reqwest;
 
 use log::{info,warn,debug,error,Level};
 
@@ -107,7 +108,11 @@ fn main() -> Result<(), errors::Error> {
     let mut daemon = daemon::Daemon::new(paths).expect("An unexpected error occurred initializing the daemon.");
 
     // Run the daemon
-    daemon.run()?;
+    let (updater_handle, listener_handle) = daemon.run()?;
+
+    updater_handle.join();
+    listener_handle.join();
+    
 
     Ok(())
 

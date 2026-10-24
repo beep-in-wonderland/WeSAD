@@ -36,4 +36,10 @@ pub enum Error {
 
     #[error("Config Error: {0}")]
     ConfigErr(String),
+
+    #[error("Reqwest Error: {0}")]
+    ReqwErr(#[from] reqwest::Error),
+
+    #[error("HTTP Error: {0}")]
+    HttpErr(String),
 }

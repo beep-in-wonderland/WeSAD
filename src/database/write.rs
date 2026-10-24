@@ -14,32 +14,58 @@ pub fn drop_orphaned_values(session: &Session) -> Result<(), errors::Error> {
 
 
 /// Takes the provided webhook and either updates the existing record or inserts it into the db.
-pub fn set_webhook_parent(session: &Session, webhook: &webhook::Descriptor) -> Result<(), errors::Error> {
+pub fn init_webhook_parent(session: &Session, webhook: &webhook::Descriptor) -> Result<(), errors::Error> {
 
     let name = &webhook.name;
 
     // If the webhook is already in the db table, update it. Otherwise, add it.
     if read::webhook_by_name(&session, &name).is_some() {
-        update_webhook_parent(&session.connection, &webhook)
+        init_update_webhook_parent(&session.connection, &webhook)
     } else {
-        add_webhook_parent(&session.connection, &webhook)
+        init_add_webhook_parent(&session.connection, &webhook)
     }
 }
 
 
-/// Takes the provided placeholder and either updates or inserts it into the db depending if it exists already.
-pub fn set_webhook_placeholders(session: &Session, name: &String, placeholders: &Vec<String>) -> Result<(), errors::Error> {
+/// Takes the provided placeholders Vector and either updates or inserts it into the db depending if it exists already.
+pub fn init_webhook_placeholders(session: &Session, name: &String, placeholders: &Vec<String>) -> Result<(), errors::Error> {
     
     for placeholder in placeholders {
         // If the placeholder is already in the db table, update it. Otherwise, add it.
         if read::placeholder_by_name(&session, name, &placeholder).is_some() {
-            update_webhook_placeholder(&session.connection, &name, &placeholder)?;
+            init_update_webhook_placeholder(&session.connection, &name, &placeholder)?;
         } else {
-            add_webhook_placeholder(&session.connection, &name, &placeholder)?;
+            init_add_webhook_placeholder(&session.connection, &name, &placeholder)?;
         }
     }
     Ok(())
 
+}
+
+
+pub fn update_webhook_placeholder(session: &Session, name: &String, placeholder: &String, value: &String) -> Result<(), errors::Error> {
+
+    let query = format!("
+            UPDATE 
+                {TAB_PLACEHOLDERS} 
+            SET  
+                {COL_WEBHOOK_PLACEHOLDER_VALUE} = :value
+            WHERE 
+                {COL_WEBHOOK_NAME}=:name 
+                AND {COL_WEBHOOK_PLACEHOLDER}=:placeholder;
+        ");
+
+    let mut statement = session.connection.prepare(query).unwrap();
+
+    statement.bind::<&[(_, sqlite::Value)]>(&[
+        (":value", value.as_str().into()),
+        (":name", name.as_str().into()),
+        (":placeholder", placeholder.as_str().into()),
+    ])?;
+
+    statement.next()?;
+
+    Ok(())
 }
 
 
@@ -112,7 +138,7 @@ fn drop_orphaned_values_from_table(connection: &Connection, table: &str) -> Resu
 
 
 /// Helper function for set_webhook_parent(). Inserts the webhook as a new entry in the table.
-fn add_webhook_parent(connection: &Connection, webhook: &webhook::Descriptor) -> Result<(), errors::Error> {
+fn init_add_webhook_parent(connection: &Connection, webhook: &webhook::Descriptor) -> Result<(), errors::Error> {
 
     let query = format!("INSERT INTO 
             {TAB_WEBHOOKS} ({COL_WEBHOOK_NAME}, {COL_WEBHOOK_URL}, {COL_WEBHOOK_TYPE},
@@ -138,7 +164,7 @@ fn add_webhook_parent(connection: &Connection, webhook: &webhook::Descriptor) ->
 
 
 /// Helper function for set_webhook_parent(). Updates the webhook instead of inserting a new entry.
-fn update_webhook_parent(connection: &Connection, webhook: &webhook::Descriptor) -> Result<(), errors::Error> {
+fn init_update_webhook_parent(connection: &Connection, webhook: &webhook::Descriptor) -> Result<(), errors::Error> {
 
     let query = format!("
             UPDATE 
@@ -170,7 +196,7 @@ fn update_webhook_parent(connection: &Connection, webhook: &webhook::Descriptor)
 
 
 /// Helper function for set_webhook_placeholder(). Updates the placeholder instead of inserting a new entry.
-fn update_webhook_placeholder(connection: &Connection, name: &String, placeholder: &String) -> Result<(), errors::Error> {
+fn init_update_webhook_placeholder(connection: &Connection, name: &String, placeholder: &String) -> Result<(), errors::Error> {
     let query = format!("
             UPDATE 
                 {TAB_PLACEHOLDERS} 
@@ -195,7 +221,7 @@ fn update_webhook_placeholder(connection: &Connection, name: &String, placeholde
 
 
 /// Helper function for set_webhook_placeholder(). Inserts the placeholder as a new entry in the table.
-fn add_webhook_placeholder(connection: &Connection, name: &String, placeholder: &String) -> Result<(), errors::Error> {
+fn init_add_webhook_placeholder(connection: &Connection, name: &String, placeholder: &String) -> Result<(), errors::Error> {
     let query = format!("INSERT INTO 
             {TAB_PLACEHOLDERS} ({COL_WEBHOOK_NAME}, {COL_WEBHOOK_PLACEHOLDER}, {COL_ORPHANED}) 
             VALUES (:name, :placeholder, '0')");

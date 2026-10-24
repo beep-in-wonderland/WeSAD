@@ -1,19 +1,25 @@
 use super::*;
-use crate::{daemon::io::open_as_string, thread};
+use crate::database::write;
+use crate::errors::Error::HttpErr;
+use crate::errors::ErrorObj;
+use crate::{daemon::io::open_as_string};
+use crate::thread::{self, JoinHandle};
 use crate::HashMap;
+use crate::reqwest;
+
+const URI_FLAGS_COMPONENT: &str = "with_components=true";
+const URI_FLAGS_WAIT: &str = "wait=true";
 
 /// Spawns a thread which continuously updates status type webhooks with session db values
-pub fn run(guard: Arc<Mutex<Session>>) -> Result<(), errors::Error> {
+pub fn run(guard: Arc<Mutex<Session>>) -> Result<JoinHandle<()>, errors::Error> {
     
-    thread::spawn(move || {
+    Ok(thread::spawn(move || {
         update_loop(guard);
-    });
-
-    Ok(())
+    }))
 }
 
 
-fn update_loop(guard: Arc<Mutex<Session>>) -> (){
+fn update_loop(guard: Arc<Mutex<Session>>) -> () {
     // Each iteration, the loop should:
     // 1. Lock the mutex
     // 2. Fetch all status type webhooks
@@ -31,23 +37,28 @@ fn update_loop(guard: Arc<Mutex<Session>>) -> (){
     let mut next_millis: i64 = 0;
     let mut time_delta: TimeDelta;
     let mut now_millis: i64;
+    
+    let rt = tokio::runtime::Runtime::new().unwrap();
 
     loop {
 
-        // 1. Lock the mutex
         let session = guard.lock().expect("poisoned");
-
-        // 2. Fetch the webhooks as a list sorted by next execution
         let webhooks = database::read::webhook_statuses(&session).unwrap();
-        
-        // 3. Release the mutex guard 
-        drop(session);
-
         now_millis = chrono::Utc::now().timestamp_millis();
+
+        // Debug line for timestamping, remove when finished
+        let _ = write::update_webhook_placeholder(
+            &session, 
+            &"bbnd-status".to_string(), 
+            &"timestamp".to_string(), 
+            &now_millis.to_string());
+    
+        // Release the mutex guard 
+        drop(session);
 
         for webhook in webhooks {
             if webhook.should_update(&now_millis) {
-                update_status_webhook(&guard, &webhook);
+                rt.block_on(update_status_webhook(&guard, &webhook)).unwrap();
             }
         }
 
@@ -61,23 +72,34 @@ fn update_loop(guard: Arc<Mutex<Session>>) -> (){
 fn sleep_to_retry(duration: Duration) {}
 
 
-fn update_status_webhook(guard: &Arc<Mutex<Session>>, status: &webhook::Status) -> Result<(), errors::Error> {
+async fn update_status_webhook(guard: &Arc<Mutex<Session>>, status: &webhook::Status) -> Result<(), errors::Error> {
 
     let mut content = open_as_string(&status.path, &status.name, ".json")?;
-    set_placeholder_data(&guard, &mut content, &status.name)?;
+    update_content_string(&guard, &mut content, &status.name)?;
+
+    dbg!(&content);
+
+    if status.msg_id == 0 {
+        // No existing message id, so we should send a new message rather than patch an existing one
+        let msg_id = send_new_webhook(status, &content).await?;
+    } else {
+        patch_existing_webhook(status, &content).await?;
+    };
 
     Ok(())
 }
 
 
-fn set_placeholder_data(guard: &Arc<Mutex<Session>>, content: &mut String, name: &String) -> Result<(), errors::Error> {
+fn update_content_string(guard: &Arc<Mutex<Session>>, content: &mut String, name: &String) -> Result<(), errors::Error> {
     
     let session = guard.lock().expect("poisoned");
     let placeholder_map = database::read::all_placeholders_by_webhook_name(&session, name)?;
     // Release the mutex lock
     drop(session);
 
-    do_placeholder_replacements(placeholder_map, content)
+    do_placeholder_replacements(placeholder_map, content)?;
+
+    Ok(())
 }
 
 
@@ -96,3 +118,55 @@ pub(super) fn do_placeholder_replacements(map: HashMap<String, String>, content:
 
     Ok(())
 }
+
+
+async fn send_new_webhook(status: &webhook::Status, content: &String) -> Result<String, errors::Error> {
+
+    let uri = format!("{}?{}&{}", status.url, URI_FLAGS_COMPONENT, URI_FLAGS_WAIT);
+
+    let client = reqwest::Client::new();
+
+    let request = client.post(uri)
+        .header("Content-Type", "application/json")
+        .body(content.clone())
+        .send()
+        .await?;
+
+    dbg!("POST sent. Response: {}",&request);
+    
+    match request.status() {
+        reqwest::StatusCode::OK => {
+            let message = json::parse(&request.text().await?.to_string())?;
+            Ok(message["id"].to_string())
+        },
+        _ => Err(HttpErr(format!("PATCH failed with code: {}",
+            request.status().as_u16()
+        )))
+    }
+    
+}
+
+
+async fn patch_existing_webhook(status: &webhook::Status, content: &String) -> Result<(), errors::Error> {
+
+    let uri = format!("{}/messages/{}?{}&{}", status.url, status.msg_id, URI_FLAGS_COMPONENT, URI_FLAGS_WAIT);
+
+    let client = reqwest::Client::new();
+
+    let request = client.patch(uri)
+        .header("Content-Type", "application/json")
+        .body(content.clone())
+        .send()
+        .await?;
+
+    dbg!("PATCH sent. Response: {}",&request);
+
+    match request.status() {
+        reqwest::StatusCode::OK => Ok(()),
+        _ => Err(HttpErr(format!("PATCH failed with code: {}",
+            request.status().as_u16()
+        )))
+    }
+
+}
+
