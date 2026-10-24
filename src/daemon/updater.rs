@@ -59,6 +59,8 @@ fn update_loop(guard: Arc<Mutex<Session>>) -> () {
         for webhook in webhooks {
             if webhook.should_update(&now_millis) {
                 rt.block_on(update_status_webhook(&guard, &webhook)).unwrap();
+
+
             }
         }
 
@@ -82,9 +84,14 @@ async fn update_status_webhook(guard: &Arc<Mutex<Session>>, status: &webhook::St
     if status.msg_id == 0 {
         // No existing message id, so we should send a new message rather than patch an existing one
         let msg_id = send_new_webhook(status, &content).await?;
+        unimplemented!("Update 'msg_id' and 'last' on webhooks table")
+
     } else {
         patch_existing_webhook(status, &content).await?;
+        unimplemented!("Update 'last' on webhooks table")
     };
+
+
 
     Ok(())
 }
