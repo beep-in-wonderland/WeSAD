@@ -57,11 +57,11 @@ fn update_loop(guard: Arc<Mutex<Session>>) -> () {
         sleep_target_timestamp = 1<<60; // A big number to start with
 
         // Debug line for timestamping, remove when finished
-        let _ = write::update_webhook_placeholder(
-            &session, 
-            &"bbnd-status".to_string(), 
-            &"timestamp".to_string(), 
-            &now_millis.to_string());
+        // let _ = write::update_webhook_placeholder(
+        //     &session, 
+        //     &"bbnd-status".to_string(), 
+        //     &"timestamp".to_string(), 
+        //     &now_millis.to_string());
     
         // Release the mutex guard 
         drop(session);
@@ -100,7 +100,6 @@ fn update_loop(guard: Arc<Mutex<Session>>) -> () {
         debug!("Putting updater thread to sleep for {} seconds", &sleep_duration_millis / 1000);
         thread::sleep(Duration::from_millis(sleep_duration_millis));
 
-        break;
     }
     
 

@@ -273,8 +273,8 @@ fn init_update_webhook_placeholder(connection: &Connection, name: &String, place
 /// Helper function for set_webhook_placeholder(). Inserts the placeholder as a new entry in the table.
 fn init_add_webhook_placeholder(connection: &Connection, name: &String, placeholder: &String) -> Result<(), errors::Error> {
     let query = format!("INSERT INTO 
-            {TAB_PLACEHOLDERS} ({COL_WEBHOOK_NAME}, {COL_WEBHOOK_PLACEHOLDER}, {COL_ORPHANED}) 
-            VALUES (:name, :placeholder, '0')");
+            {TAB_PLACEHOLDERS} ({COL_WEBHOOK_NAME}, {COL_WEBHOOK_PLACEHOLDER}, {COL_WEBHOOK_PLACEHOLDER_VALUE}, {COL_ORPHANED}) 
+            VALUES (:name, :placeholder, '*empty*' , '0')");
 
     let mut statement = connection.prepare(query).unwrap();
 
