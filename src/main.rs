@@ -87,7 +87,7 @@ pub struct CLIArgs {
 impl Default for CLIArgs {
     fn default() -> Self {
         Self {
-            log_level : Level::Debug,
+            log_level : Level::Info,
         }
     }
 }

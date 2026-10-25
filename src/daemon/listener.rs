@@ -1,3 +1,5 @@
+use std::f64::consts::E;
+
 use super::*;
 use super::database::Session;
 use crate::TcpListener;
@@ -10,25 +12,40 @@ use crate::serde::Deserialize;
 
 
 #[derive(Deserialize)]
-struct PlaceholderUpdate {
+struct StatusUpdate {
     webhook: String,
-    placeholder: String,
-    value: String,
+    update_type: String,
+    content: Vec<PlaceholderValue>,
 }
 
-impl Display for PlaceholderUpdate {
+impl Display for StatusUpdate {
 
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "PlaceholderUpdate:
+
+        let mut values_str: String = String::from("\n");
+
+        for pl in &self.content {
+            values_str = values_str + format!("            {} : \"{}\"", pl.placeholder, pl.value).as_str();
+        }
+
+        write!(f, "StatusUpdate:
         webhook: {}
-        placeholder: {}
-        value: {}",
+        update_type: {}
+        values:{}",
         self.webhook,
-        self.placeholder,
-        self.value
+        self.update_type,
+        values_str
     )
     }
 }
+
+#[derive(Deserialize)]
+struct PlaceholderValue {
+    placeholder: String,
+    value: String
+}
+
+
 
 
 pub fn run(guard: Arc<Mutex<database::Session>>, runtime_config: &RuntimeConfig) -> Result<JoinHandle<()>, errors::Error> {
@@ -58,7 +75,7 @@ fn listen_http(guard: Arc<Mutex<database::Session>>, target_ip: String) -> () {
 async fn build_listener(guard: Arc<Mutex<database::Session>>, target_ip: String) -> Result<(), errors::Error> {
 
     let app: axum::Router = axum::Router::new()
-        .route("/placeholder", post(placeholder_handler))
+        .route("/status", post(status_handler))
         .with_state(guard);
 
     let listener = tokio::net::TcpListener::bind(target_ip).await?;
@@ -68,24 +85,35 @@ async fn build_listener(guard: Arc<Mutex<database::Session>>, target_ip: String)
 }
 
 
-async fn placeholder_handler(
+async fn status_handler(
     State(guard): State<Arc<Mutex<database::Session>>>, 
-    Json(payload): Json<PlaceholderUpdate>
+    Json(payload): Json<StatusUpdate>
 ) -> axum::http::StatusCode {
 
-    debug!("POST received to HTTP listener:\n{}", payload);
+    debug!("POST received to HTTP listener for webhook: {}", &payload.webhook);
+
+    if payload.update_type.to_lowercase().trim().ne("status") {
+        error!("Incorrect webhook type for endpoint /status");
+        return axum::http::StatusCode::NOT_ACCEPTABLE;
+    }
 
     let session = guard.lock().expect("poisoned");
 
-    if let Ok(_) = database::write::update_webhook_placeholder(
-        &session, 
-        &payload.webhook, 
-        &payload.placeholder, 
-        &payload.value,
-    ) {
-        axum::http::StatusCode::OK
-    } else {
-        axum::http::StatusCode::INTERNAL_SERVER_ERROR
-    }
+    for pl in &payload.content {
+        if let Err(e) = database::write::update_webhook_placeholder(
+            &session, 
+            &payload.webhook, 
+            &pl.placeholder, 
+            &pl.value,
+        ) {
+            warn!("Placeholder {} : \"{}\" failed to update, error {e}", pl.placeholder, pl.value)
+        } else {
+            debug!("Placeholder value updated successfully: {}: \"{}\"", pl.placeholder, pl.value);
+        }
+    };
+
+    axum::http::StatusCode::OK
 
 }
+
+    

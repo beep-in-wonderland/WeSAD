@@ -114,8 +114,6 @@ async fn update_status_webhook(guard: &Arc<Mutex<Session>>, status: &webhook::St
     let mut content = open_as_string(&status.path, &status.name, ".json")?;
     update_content_string(&guard, &mut content, &status.name)?;
 
-    dbg!(&content);
-
     if status.msg_id == 0 {
         // No existing message id, so we should send a new message rather than patch an existing one
         let msg_id = post_new_webhook(status, &content).await?;
