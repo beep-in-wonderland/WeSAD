@@ -1,3 +1,5 @@
+use super::*;
+
 use core::fmt;
 use std::io::Read;
 use std::ops::Not;
@@ -5,6 +7,7 @@ use std::str::FromStr;
 use std::thread;
 use std::thread::JoinHandle;
 
+use crate::daemon::io::open_as_string;
 use crate::database::Session;
 use crate::errors::Error::ArgumentErr;
 use crate::errors::Error::ConfigErr;
@@ -25,6 +28,7 @@ use chrono::TimeDelta;
 use chrono::{NaiveDateTime, NaiveDate, Local, DateTime, Duration};
 use fancy_regex::Captures;
 use json::JsonValue;
+use tokio::runtime::Runtime;
 
 
 mod listener;
@@ -55,9 +59,90 @@ struct WebhookConfigContents {
 }
 
 
+struct RuntimeConfig {
+    listener_addr : String,
+    listener_port : String,
+    smtp_user: String,
+    smtp_target: String,
+    smtp_host: String,
+    smtp_port: String,
+}
+
+
+impl RuntimeConfig {
+    fn new(paths: &ProgramPaths) -> Self {
+
+        let json_str = open_as_string(
+            &paths.etc.to_str().unwrap().to_string(),
+            &"bbnd".to_string(),
+             &".conf".to_string()
+        ).unwrap_or(
+            // If the file wasn't found, generate an empty json str so defaults get populated
+            "{\"never gonna\" : \"give you up\"}".to_string() 
+        );
+
+        let config = json::parse(json_str.as_str()).expect("Either config was found or blank was generated");
+
+        let result = RuntimeConfig { 
+            listener_addr: RuntimeConfig::has_key_or_default(
+                &config, vec!["listener_addr"]), 
+            listener_port: RuntimeConfig::has_key_or_default(
+                &config, vec!["listener_port"]), 
+            smtp_user: RuntimeConfig::has_key_or_default(
+                &config, vec!["smtp_config", "smtp_user"]), 
+            smtp_target: RuntimeConfig::has_key_or_default(
+                &config, vec!["smtp_config", "smtp_target"]), 
+            smtp_host: RuntimeConfig::has_key_or_default(
+                &config, vec!["smtp_config", "smtp_host"]), 
+            smtp_port: RuntimeConfig::has_key_or_default(
+                &config, vec!["smtp_config", "smtp_port"]), 
+        };
+
+        debug!("{}", result);
+        result
+    }
+
+
+    fn has_key_or_default(jsonval: &JsonValue, keys: Vec<&str>) -> String {
+
+        let mut target: JsonValue = jsonval.clone();
+
+        for key in keys {
+            if target.has_key(key) {
+                target = target[key].clone();
+            } else {
+                return match key {
+                    "listener_addr" => "127.0.0.1",
+                    "listener_port" => "22000",
+                    _               => ""
+                }.to_string()
+            }
+        }
+        return target.to_string()
+
+    }
+}
+
+impl Display for RuntimeConfig {
+
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "RuntimeConfig:
+        listener-ip: {}:{}
+        smtp user: {}
+        smtp target: {}
+        smtp host: {}:{}", 
+        self.listener_addr, self.listener_port, 
+        self.smtp_user, self.smtp_target,
+        self.smtp_host, self.smtp_port)
+    }
+}
+
+
+
 pub struct Daemon {
     paths : ProgramPaths,
     session : Arc<Mutex<database::Session>>,
+    runtime_config: RuntimeConfig,
 }
 
 
@@ -71,9 +156,13 @@ impl Daemon {
             database::Session::init(&paths)
             .expect("An unexpected error occurred initializing the database.");
         
+        let config = RuntimeConfig::new(&paths);
+
+
         Ok (Self { 
-                    paths,
-                    session : Arc::new(Mutex::new(session)),
+                paths,
+                session : Arc::new(Mutex::new(session)),
+                runtime_config : config,
             })
     }
 
@@ -93,7 +182,9 @@ impl Daemon {
         let updater_handle = updater::run(Arc::clone(&self.session)).expect("Program does nothing if this fails");
 
         // Spawns a thread to continuously listen for & execute database updates
-        let listener_handle = listener::run(Arc::clone(&self.session)).expect("Program does nothing if this fails");
+        let listener_handle = listener::run(
+            Arc::clone(&self.session), &self.runtime_config)
+            .expect("Program does nothing if this fails");
 
         Ok ((updater_handle, listener_handle))
     }
@@ -185,5 +276,3 @@ fn validate_config_lines(json_data: &JsonValue, name: &String) -> Result<(), err
 
     Ok(())
 }
-
-
