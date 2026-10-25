@@ -41,13 +41,14 @@ fn update_loop(guard: Arc<Mutex<Session>>) -> () {
 
     let mut period: f64;
     let mut sleep_target_timestamp;
-    let mut next_millis;
+    let mut next_timestamp;
     let mut now_millis: i64;
     let mut sleep_duration_millis: u64 = 0;
     
     let rt = tokio::runtime::Runtime::new().unwrap();
 
     loop {
+        debug!("Starting updater loop iteration");
 
         let session = guard.lock().expect("poisoned");
         let webhooks = database::read::webhook_statuses(&session).unwrap();
@@ -75,19 +76,24 @@ fn update_loop(guard: Arc<Mutex<Session>>) -> () {
                     // If a new msg_id was returned, update it in the database
                     database::write::update_webhook_msg_id(&session, &webhook.name, &msg_id.unwrap()).unwrap();
                 }
-                // Update the last execution of the webhook
+                // Update the last execution of the webhook to the current timestamp in milliseconds
                 database::write::update_webhook_last(&session, &webhook.name, &now_millis.to_string()).unwrap();
 
-                next_millis = webhook.period + now_millis;
+                // Since we just executed, webhook.last is now stale. Use now_millis instead for finding next execution time
+                next_timestamp = webhook.period + now_millis;
 
-                // Lastly, check if the current time delta is the lowest, update if so
-                if next_millis < sleep_target_timestamp {
-                    sleep_target_timestamp = next_millis;
-                    sleep_duration_millis = (sleep_target_timestamp - now_millis) as u64;
-                    debug!("New shortest sleep target for update loop: {}", sleep_duration_millis / 1000)
-                }
-
+            } else {
+                // If no update occurred, use the last execution from the webhook status
+                next_timestamp = webhook.period + webhook.last;
             }
+
+            // Lastly, check if the current time delta is the lowest, update if so
+            if next_timestamp < sleep_target_timestamp {
+                sleep_target_timestamp = next_timestamp;
+                sleep_duration_millis = (sleep_target_timestamp - now_millis) as u64;
+                debug!("New shortest sleep target for update loop: {}", &sleep_duration_millis / 1000)
+            }
+
         }
 
         // With the shortest next sleep target found, put the thread to sleep for that long
