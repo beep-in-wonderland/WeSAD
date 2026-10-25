@@ -69,6 +69,56 @@ pub fn update_webhook_placeholder(session: &Session, name: &String, placeholder:
 }
 
 
+pub fn update_webhook_msg_id(session: &Session, name: &String, msg_id: &String) -> Result<(), errors::Error> {
+
+    let query = format!("
+            UPDATE 
+                {TAB_WEBHOOKS} 
+            SET  
+                {COL_MESSAGE_ID} = :value
+            WHERE 
+                {COL_WEBHOOK_NAME}=:name 
+        ");
+
+    let mut statement = session.connection.prepare(query).unwrap();
+
+    statement.bind::<&[(_, sqlite::Value)]>(&[
+        (":value", msg_id.as_str().into()),
+        (":name", name.as_str().into()),
+    ])?;
+
+    statement.next()?;
+
+    Ok(())
+
+}
+
+
+pub fn update_webhook_last(session: &Session, name: &String, last: &String) -> Result<(), errors::Error> {
+
+    let query = format!("
+            UPDATE 
+                {TAB_WEBHOOKS} 
+            SET  
+                {COL_LAST} = :value
+            WHERE 
+                {COL_WEBHOOK_NAME}=:name 
+        ");
+
+    let mut statement = session.connection.prepare(query).unwrap();
+
+    statement.bind::<&[(_, sqlite::Value)]>(&[
+        (":value", last.as_str().into()),
+        (":name", name.as_str().into()),
+    ])?;
+
+    statement.next()?;
+
+    Ok(())
+
+}
+
+
 /// Called at initialization to set all the existing nodes in the db as `orphaned=true` by
 /// default. When the configs are read, any values that are still valid and required will
 /// have `orphaned=false` and remain in the tables.

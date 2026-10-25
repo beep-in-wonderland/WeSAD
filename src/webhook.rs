@@ -1,5 +1,6 @@
 use super::*;
 use std::fmt;
+use std::ops::Add;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Type {
@@ -131,5 +132,12 @@ impl From<i64> for Period {
         Self {
             value: value
         }
+    }
+}
+
+impl Add<i64> for Period {
+    type Output = i64;
+    fn add(self, val: i64) -> i64 {
+        self.value + val
     }
 }
