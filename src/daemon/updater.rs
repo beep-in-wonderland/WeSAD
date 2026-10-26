@@ -1,12 +1,7 @@
 use std::time::Duration;
 
-use dbus::arg::RefArg;
-use tokio::time::sleep;
-
 use super::*;
-use crate::database::write;
 use crate::errors::Error::HttpErr;
-use crate::errors::ErrorObj;
 use crate::{daemon::io::open_as_string};
 use crate::thread::{self, JoinHandle};
 use crate::HashMap;
@@ -37,9 +32,6 @@ fn update_loop(guard: Arc<Mutex<Session>>) -> () {
     // 7. Release the mutex
     // 8. Put the thread to sleep for `sleep_duration` seconds
 
-    let mut webhooks: &Vec<webhook::Status>;
-
-    let mut period: f64;
     let mut sleep_target_timestamp;
     let mut next_timestamp;
     let mut now_millis: i64;
@@ -106,13 +98,12 @@ fn update_loop(guard: Arc<Mutex<Session>>) -> () {
 }
 
 
-fn sleep_to_retry(duration: Duration) {}
-
-
 async fn update_status_webhook(guard: &Arc<Mutex<Session>>, status: &webhook::Status) -> Result<Option<String>, errors::Error> {
 
     let mut content = open_as_string(&status.path, &status.name, ".json")?;
     update_content_string(&guard, &mut content, &status.name)?;
+
+    dbg!(&content);
 
     if status.msg_id == 0 {
         // No existing message id, so we should send a new message rather than patch an existing one
@@ -212,8 +203,9 @@ async fn patch_existing_webhook(status: &webhook::Status, content: &String) -> R
 
     match request.status() {
         reqwest::StatusCode::OK => Ok(()),
-        _ => Err(HttpErr(format!("PATCH failed with code: {}",
-            request.status().as_u16()
+        _ => Err(HttpErr(format!("PATCH failed with code: {} - {}",
+            request.status().as_u16(),
+            request.text().await.unwrap()
         )))
     }
 

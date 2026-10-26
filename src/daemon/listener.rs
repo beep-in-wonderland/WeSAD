@@ -1,5 +1,3 @@
-use std::f64::consts::E;
-
 use super::*;
 use super::database::Session;
 use crate::TcpListener;
@@ -39,13 +37,12 @@ impl Display for StatusUpdate {
     }
 }
 
+
 #[derive(Deserialize)]
 struct PlaceholderValue {
     placeholder: String,
     value: String
 }
-
-
 
 
 pub fn run(guard: Arc<Mutex<database::Session>>, runtime_config: &RuntimeConfig) -> Result<JoinHandle<()>, errors::Error> {
@@ -90,7 +87,7 @@ async fn status_handler(
     Json(payload): Json<StatusUpdate>
 ) -> axum::http::StatusCode {
 
-    debug!("POST received to HTTP listener for webhook: {}", &payload.webhook);
+    info!("POST received to HTTP listener for webhook: {}", &payload.webhook);
 
     if payload.update_type.to_lowercase().trim().ne("status") {
         error!("Incorrect webhook type for endpoint /status");

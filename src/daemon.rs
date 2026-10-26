@@ -24,8 +24,6 @@ use crate::{smtp, database, errors};
 use crate::json;
 
 use chrono;
-use chrono::TimeDelta;
-use chrono::{NaiveDateTime, NaiveDate, Local, DateTime, Duration};
 use fancy_regex::Captures;
 use json::JsonValue;
 use tokio::runtime::Runtime;

@@ -6,7 +6,6 @@ mod schema;
 mod tests;
 
 use std::fs::File;
-use std::ops::Not;
 
 use dbus::arg::RefArg;
 use crate::{Path,PathBuf};
