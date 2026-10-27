@@ -1,4 +1,3 @@
-use crate::errors::Error::SqliteErr;
 use crate::webhook;
 use crate::HashMap;
 
@@ -99,19 +98,3 @@ pub fn webhook_statuses(session: &Session) -> Result<Vec<webhook::Status>, error
 
         Ok(result)
     }
-
-
-pub fn payload_path(session: &Session, name: &String) -> Option<String> {
-
-    let query: &str = "SELECT path FROM payloads WHERE webhook=:name LIMIT 1";
-    let mut statement = session.connection.prepare(query).unwrap();
-
-    statement.bind((":name",name.as_str())).unwrap();
-    statement.next().unwrap();
-    statement.read::<String, usize>(1).map_or(
-        None, 
-        |s| {
-        Some(s.parse::<String>().unwrap())
-    })
-
-}

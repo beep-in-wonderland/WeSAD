@@ -7,12 +7,10 @@ mod tests;
 
 use std::fs::File;
 
-use dbus::arg::RefArg;
 use crate::{Path,PathBuf};
-use crate::ProgramPaths;
 use crate::sqlite::{self, Connection};
 use crate::errors;
-use crate::{info,error,debug,warn};
+use crate::logging::*;
 
 pub const TAB_WEBHOOKS: &str = "webhooks";
 pub const COL_WEBHOOK_NAME: &str = "webhook";
@@ -40,16 +38,16 @@ impl Session {
     /// function does not perform any validation on the database contents. It only
     /// establishes the connection and returns the object through which the database
     /// can be accessed.
-    pub fn init(paths: &ProgramPaths) -> Result<Self, errors::Error> {
+    pub(super) fn init(persist_dir: &PathBuf) -> Result<Self, errors::Error> {
 
-        let db_path: &PathBuf = &paths.persist.join("bbnd.db");
+        let db_path: &PathBuf = &persist_dir.join("bbnd.db");
         let connection = Session::open_db_at_path(db_path)?;
 
         debug!("Database initialization complete");
         Ok(Self {connection,})
     }
 
-    pub fn init_from_path(path_str: &str) -> Result<Self, errors::Error> {
+    pub fn _init_from_path(path_str: &str) -> Result<Self, errors::Error> {
 
         let db_path: &PathBuf = &PathBuf::from(path_str);
         let connection: Connection = Session::open_db_at_path(db_path)?;

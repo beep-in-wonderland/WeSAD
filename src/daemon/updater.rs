@@ -103,8 +103,6 @@ async fn update_status_webhook(guard: &Arc<Mutex<Session>>, status: &webhook::St
     let mut content = open_as_string(&status.path, &status.name, ".json")?;
     update_content_string(&guard, &mut content, &status.name)?;
 
-    dbg!(&content);
-
     if status.msg_id == 0 {
         // No existing message id, so we should send a new message rather than patch an existing one
         let msg_id = post_new_webhook(status, &content).await?;
@@ -112,7 +110,7 @@ async fn update_status_webhook(guard: &Arc<Mutex<Session>>, status: &webhook::St
     } else {
 
         // There is a message id in the table. We should check it's valid before proceeding.
-        if check_webhook_message_exists(guard, status).await? {
+        if check_webhook_message_exists(status).await? {
 
             // The message id is valid, proceed with a regular patch
             patch_existing_webhook(status, &content).await?;
@@ -212,7 +210,7 @@ async fn patch_existing_webhook(status: &webhook::Status, content: &String) -> R
 }
 
 
-async fn check_webhook_message_exists(guard: &Arc<Mutex<Session>>, status: &webhook::Status) -> Result<bool, errors::Error> {
+async fn check_webhook_message_exists(status: &webhook::Status) -> Result<bool, errors::Error> {
 
     let uri = format!("{}/messages/{}?{}&{}", status.url, status.msg_id, URI_FLAGS_COMPONENT, URI_FLAGS_WAIT);
 

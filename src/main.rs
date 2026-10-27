@@ -1,87 +1,22 @@
+use std::error;
 // standard library imports
-use std::fs::{exists, read_dir, File};
-use std::fmt::Display;
-use std::path::{Path, PathBuf};
-use std::env::current_dir;
-use std::env::args;
+use std::fs::exists;
+use std::path::PathBuf;
+use std::env::{current_dir, args};
 use std::str::FromStr;
-use std::sync::{Arc,Mutex,MutexGuard};
-use std::net::TcpListener;
-use std::thread::{self, JoinHandle};
-use std::collections::HashMap;
-
-// all crates for the project
-use daemonize;
-use mail_send; // SMTP email sending
-use sqlite; // managing persistent data
-use json; // parsing config files
-use thiserror; // error macros
-use fern; // logging
-use chrono; // timing
-use fancy_regex;
-use reqwest;
-use axum;
-use serde;
-
-use log::{info,warn,debug,error,Level};
 
 
-// separate custom modules
-mod database; // Database management module using SQLite3
-mod daemon;
-mod smtp;
-mod errors;
-mod webhook;
 
-// Relevant paths for folders 
-pub struct ProgramPaths {
-    log: PathBuf,
-    persist: PathBuf,
-    etc: PathBuf,
-}
+// lib import
+use bbnd::{
+    self,
+    logging::Level,
+};
 
-
-impl ProgramPaths {
-
-    // Initializes the paths for the program files based on whether this executable
-    // is running from a dev build folder or on a real machine.
-    fn init(is_dev_build: bool) -> Self {
-        let log: PathBuf;
-        let persist: PathBuf;
-        let etc: PathBuf;
-
-        match is_dev_build {
-            true => {
-                let root_dir = current_dir().unwrap();
-
-                log = root_dir.join("dev/log/");
-                persist = root_dir.join("dev/persist/");
-                etc = root_dir.join("dev/etc/")
-            }
-
-            false => {
-                log = PathBuf::from("/var/log/bbnd/");
-                persist = PathBuf::from("/var/lib/bbnd/");
-                etc = PathBuf::from("/etc/")
-            }
-        }
-
-        debug!("Log path: {0}", log.display());
-        debug!("Persist path: {0}", persist.display());
-        debug!("Etc path: {0}", etc.display());
-        
-
-        Self { 
-            log, 
-            persist, 
-            etc, 
-        }
-    }
-}
 
 // Public struct to hold all args passed during CLI initialization of the service.
 pub struct CLIArgs {
-    log_level : Level,
+    pub log_level : Level,
 }
 
 impl Default for CLIArgs {
@@ -93,30 +28,27 @@ impl Default for CLIArgs {
 }
 
 
-fn main() -> Result<(), errors::Error> {
+fn main() -> () {
 
     // Allow the CLI args to be mutable in case these require adjustment during runtime 
     // via user input.
-    let mut cli_args = parse_cli_args().unwrap(); 
+    let cli_args = parse_cli_args().unwrap(); 
 
-    // Important runtime variables
-    let is_dev_build: bool = check_dev_build().expect("Must be able to discern dev build or not.");
-    let paths: ProgramPaths = ProgramPaths::init(is_dev_build);
-
-    // Initialize the logger
-    init_logger(&cli_args.log_level, &paths.log);
-
-    // Initialize the daemon
-    let mut daemon = daemon::Daemon::new(paths).expect("An unexpected error occurred initializing the daemon.");
-
-    // Run the daemon
-    let (updater_handle, listener_handle) = daemon.run()?;
-
-    updater_handle.join();
-    listener_handle.join();
+    // Check if the current binary is running in a dev environment
+    let is_dev_build: bool = check_dev_build()
+        .unwrap_or(true);
     
+    // Initialize the daemon (it's not a daemon yet lol)
+    let mut daemon = bbnd::daemon::Daemon::new(
+        is_dev_build,
+        &cli_args.log_level,
+    )
+    .expect("An unexpected error occurred initializing the daemon.");
 
-    Ok(())
+    // Run the (not) daemon. This call will join on one of the spawned threads that loops indefinitely.
+    // TODO add some logic to restart the daemon on a thread failure, as well as have the threads 
+    // check with each other when one fails.
+    daemon.run().expect("Somethin real bad happened");
 
 }
 
@@ -124,9 +56,8 @@ fn main() -> Result<(), errors::Error> {
 /// Check whether the program is running as a precompiled binary or if it is running
 /// in the dev build. This is done by checking whether some of the various dev directories
 /// exist.
-fn check_dev_build() -> Result<bool, errors::Error> {
+fn check_dev_build() -> Result<bool, Box<dyn error::Error>> {
 
-    debug!("Checking for dev build...");
     // While in the dev build, the relative path of the binary will be ~/target/debug/
     // must be mut because the .pop() requires a mutable reference to the PathBuf
     let root_dir: PathBuf = current_dir().unwrap();
@@ -141,16 +72,14 @@ fn check_dev_build() -> Result<bool, errors::Error> {
     {
         // If this is running from the debug directory, the relative folder "~/state/" will exist
         // and is functionally the same as /usr/lib/bbnd/
-        debug!("Dev build: TRUE");
         return Ok(true);
     }
 
-    debug!("Dev build: FALSE");
     return Ok(false)
 }
 
 
-fn parse_cli_args() -> Result<CLIArgs, errors::Error> {
+fn parse_cli_args() -> Result<CLIArgs, Box<dyn error::Error>> {
     
     let mut cli_args = CLIArgs::default();
 
@@ -169,29 +98,4 @@ fn parse_cli_args() -> Result<CLIArgs, errors::Error> {
     Ok(cli_args)
 }
 
-
-fn init_logger(log_level: &Level, log_path: &PathBuf) {
-
-    let log_path: &PathBuf = &log_path.join("bbnd.log");
-    if !exists(log_path).unwrap() {
-        let _ = File::create_new(log_path);
-    };
-
-    fern::Dispatch::new()
-        .format(|out, message, record| {
-            out.finish(format_args!(
-                "[{}][{}] {}",
-                chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
-                record.level(),
-                message
-            ))
-        })
-        .level(log_level.to_level_filter())
-        .chain(std::io::stdout())
-        .chain(fern::log_file(log_path).unwrap())
-        .apply()
-        .unwrap();
-
-    debug!("Logger initialized")
-}
 

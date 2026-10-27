@@ -1,4 +1,3 @@
-use super::*;
 use crate::{HashMap, daemon::updater::do_placeholder_replacements};
 
 #[test]

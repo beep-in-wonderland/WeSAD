@@ -13,7 +13,7 @@ fern = "0.7.1"
 json = "0.12.4"
 log = "0.4.34"
 mail-send = "0.6.2"
-reqwest = "0.13.5"
+reqwest = {version = "0.13.5", features=["blocking"]}
 serde = "1.0.229"
 sqlite = "0.37.4"
 thiserror = "2.0.21"
