@@ -1,5 +1,65 @@
 use super::*;
 
+// Relevant paths for folders 
+pub struct ProgramPaths {
+    log: PathBuf,
+    persist: PathBuf,
+    etc: PathBuf,
+}
+
+
+impl ProgramPaths {
+
+    // Initializes the paths for the program files based on whether this executable
+    // is running from a dev build folder or on a real machine.
+    pub fn get_paths(is_dev_build: bool) -> Self {
+        let log: PathBuf;
+        let persist: PathBuf;
+        let etc: PathBuf;
+
+        match is_dev_build {
+            true => {
+                let root_dir = current_dir().unwrap();
+
+                log = root_dir.join("dev/log/");
+                persist = root_dir.join("dev/persist/");
+                etc = root_dir.join("dev/etc/")
+            }
+
+            false => {
+                log = PathBuf::from("/var/log/bbnd/");
+                persist = PathBuf::from("/var/lib/bbnd/");
+                etc = PathBuf::from("/etc/")
+            }
+        }
+
+        debug!("Log path: {0}", log.display());
+        debug!("Persist path: {0}", persist.display());
+        debug!("Etc path: {0}", etc.display());
+        
+
+        Self { 
+            log, 
+            persist, 
+            etc, 
+        }
+    }
+
+    pub fn get_log(self: &ProgramPaths) -> &PathBuf {
+        &self.log
+    }
+
+    pub fn get_etc(self: &ProgramPaths) -> &PathBuf {
+        &self.etc
+    }
+
+    pub fn get_persist(self: &ProgramPaths) -> &PathBuf {
+        &self.persist
+    }
+
+}
+
+
 pub fn open_as_string(path: &String, name: &String, ext: &str) -> Result<String, errors::Error> {
 
     // Combine the path and name into a single PathBuf

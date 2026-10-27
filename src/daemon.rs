@@ -7,20 +7,17 @@ use std::str::FromStr;
 use std::thread;
 use std::thread::JoinHandle;
 
-use crate::daemon::io::open_as_string;
 use crate::database::Session;
-use crate::errors::Error::ArgumentErr;
-use crate::errors::Error::ConfigErr;
+use crate::errors::Error::*;
 use crate::read_dir;
 use crate::PathBuf;
 use crate::File;
 
-use crate::ProgramPaths;
 use crate::fancy_regex::Regex;
 use crate::webhook;
 use crate::{Arc,Mutex};
-use crate::{info,error,debug,warn};
-use crate::{smtp, database, errors};
+use crate::logging::{info,error,debug,warn};
+use crate::{database, errors};
 use crate::json;
 
 use chrono;
@@ -29,9 +26,9 @@ use json::JsonValue;
 use tokio::runtime::Runtime;
 
 
+pub mod io;
 mod listener;
 mod updater;
-mod io;
 
 #[cfg(test)]
 mod tests;
@@ -68,10 +65,10 @@ struct RuntimeConfig {
 
 
 impl RuntimeConfig {
-    fn new(paths: &ProgramPaths) -> Self {
+    fn new(paths: &io::ProgramPaths) -> Self {
 
-        let json_str = open_as_string(
-            &paths.etc.to_str().unwrap().to_string(),
+        let json_str = io::open_as_string(
+            &paths.get_etc().to_str().unwrap().to_string(),
             &"bbnd".to_string(),
              &".conf".to_string()
         ).unwrap_or(
@@ -138,7 +135,7 @@ impl Display for RuntimeConfig {
 
 
 pub struct Daemon {
-    paths : ProgramPaths,
+    paths : io::ProgramPaths,
     session : Arc<Mutex<database::Session>>,
     runtime_config: RuntimeConfig,
 }
@@ -147,14 +144,18 @@ pub struct Daemon {
 impl Daemon {
 
     /// Initialization function of the daemon only requires that the paths be specified for this runtime.
-    pub fn new(paths: ProgramPaths) -> Result<Self, errors::Error> {
-        
+    pub fn new(is_dev_build: bool, log_level: &logging::Level) -> Result<Self, errors::Error> {
+        // TODO Rewrite this as a builder eventually with .with_dev_build() as a buildparam
+        let paths = io::ProgramPaths::get_paths(is_dev_build);
+
         // Initialize persistent local db.
         let session = 
-            database::Session::init(&paths)
+            database::Session::init(&paths.get_persist())
             .expect("An unexpected error occurred initializing the database.");
         
         let config = RuntimeConfig::new(&paths);
+
+        
 
 
         Ok (Self { 
@@ -164,7 +165,7 @@ impl Daemon {
             })
     }
 
-    pub fn run(&mut self) -> Result<(JoinHandle<()>, JoinHandle<()>), errors::Error> {
+    pub fn run(&mut self) -> Result<(), errors::Error> {
 
         // Read configs and store data in db
         self.parse_all_webhook_configs()?;
@@ -184,13 +185,17 @@ impl Daemon {
             Arc::clone(&self.session), &self.runtime_config)
             .expect("Program does nothing if this fails");
 
-        Ok ((updater_handle, listener_handle))
+        // TODO On a failed thread, catch the unwind, report the error to the logger, and then try and restart the thread?
+        updater_handle.join().unwrap();
+        listener_handle.join().unwrap();
+
+        Ok (())
     }
 
 
     fn parse_all_webhook_configs(&mut self) -> Result<(), errors::Error> {
         log::debug!("Starting webhook parse");
-        let webhooks = read_dir(&self.paths.etc.join(PATH_WEBHOOKS_ETC))?;
+        let webhooks = read_dir(&self.paths.get_etc().join(PATH_WEBHOOKS_ETC))?;
         let mut webhook_path: PathBuf;
 
         let regex_conf = Regex::new(REGEX_CONF)?;
