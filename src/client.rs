@@ -20,7 +20,7 @@ impl Client {
 
     pub fn new() -> Result<Self, ClientErr> 
     {
-        let addr = "http://127.0.0.1:22000";
+        let addr = "http://0.0.0.0:22000";
 
         Client::validate_daemon(&addr)?;
 

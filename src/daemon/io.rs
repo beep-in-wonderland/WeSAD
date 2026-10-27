@@ -4,10 +4,6 @@ const ETC_PATH_DEV: &str = "dev/etc/";
 const LOG_PATH_DEV: &str =  "dev/log/";
 const DATA_PATH_DEV: &str =  "dev/lib/";
 
-const ETC_PATH_ENV: &str = ".config/bbnd/";
-const LOG_PATH_ENV: &str =  ".local/state/bbnd/";
-const DATA_PATH_ENV: &str =  ".local/share/bbnd/";
-
 
 // Relevant paths for folders 
 pub struct ProgramPaths {
