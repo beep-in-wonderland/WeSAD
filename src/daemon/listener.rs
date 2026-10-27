@@ -1,6 +1,5 @@
-use mail_send::mail_auth::hickory_resolver::proto::serialize::binary::Place;
-
 use super::*;
+
 use crate::JoinHandle;
 use crate::axum::{
     routing::{post, get},
@@ -24,7 +23,7 @@ impl Display for StatusUpdate {
         let mut values_str: String = String::from("\n");
 
         for pl in &self.content {
-            values_str = values_str + format!("            {} : \"{}\"", pl.placeholder, pl.value).as_str();
+            values_str = values_str + format!("{} : \"{}\"", pl.placeholder, pl.value).as_str();
         }
 
         write!(f, "StatusUpdate:

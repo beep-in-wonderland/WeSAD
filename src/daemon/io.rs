@@ -1,5 +1,14 @@
 use super::*;
 
+const ETC_PATH_DEV: &str = "dev/etc/";
+const LOG_PATH_DEV: &str =  "dev/log/";
+const DATA_PATH_DEV: &str =  "dev/lib/";
+
+const ETC_PATH_ENV: &str = ".config/bbnd/";
+const LOG_PATH_ENV: &str =  ".local/state/bbnd/";
+const DATA_PATH_ENV: &str =  ".local/share/bbnd/";
+
+
 // Relevant paths for folders 
 pub struct ProgramPaths {
     log: PathBuf,
@@ -13,36 +22,13 @@ impl ProgramPaths {
     // Initializes the paths for the program files based on whether this executable
     // is running from a dev build folder or on a real machine.
     pub fn get_paths(is_dev_build: bool) -> Self {
-        let log: PathBuf;
-        let persist: PathBuf;
-        let etc: PathBuf;
-
-        match is_dev_build {
-            true => {
-                let root_dir = current_dir().unwrap();
-
-                log = root_dir.join("dev/log/");
-                persist = root_dir.join("dev/persist/");
-                etc = root_dir.join("dev/etc/")
-            }
-
-            false => {
-                log = PathBuf::from("/var/log/bbnd/");
-                persist = PathBuf::from("/var/lib/bbnd/");
-                etc = PathBuf::from("/etc/")
-            }
-        }
-
-        debug!("Log path: {0}", log.display());
-        debug!("Persist path: {0}", persist.display());
-        debug!("Etc path: {0}", etc.display());
-        
-
-        Self { 
-            log, 
-            persist, 
-            etc, 
-        }
+        if is_dev_build {
+            ProgramPaths::init_dev_directories()
+        } else {
+            ProgramPaths::init_env_directories()
+        }.unwrap_or_else(|e| {
+            panic!("Could not initialize directories: {e}")
+        })
     }
 
     pub fn get_log(self: &ProgramPaths) -> &PathBuf {
@@ -57,7 +43,42 @@ impl ProgramPaths {
         &self.persist
     }
 
+    fn init_dev_directories() -> Result<Self, errors::Error> {
+
+        let root = current_dir()?;
+        let etc = root.join(ETC_PATH_DEV);
+        let log = root.join(LOG_PATH_DEV);
+        let persist = root.join(DATA_PATH_DEV);
+
+        Ok(Self {
+            etc,
+            log,
+            persist,
+        })
+    }
+
+    fn init_env_directories() -> Result<Self, errors::Error> {
+        let dirs = directories::ProjectDirs::from(
+            "com", "beepdodev", "bbnd")
+            .expect("Failed to find ENV directories");
+
+        let etc = dirs.config_dir().to_path_buf();
+        let log = dirs.state_dir().unwrap().to_path_buf();
+        let persist = dirs.data_dir().to_path_buf();
+
+        std::fs::create_dir_all(etc.join("webhooks.d"))?;
+        std::fs::create_dir_all(&log)?;
+        std::fs::create_dir_all(&persist)?;
+
+        Ok(Self { 
+            log, 
+            persist, 
+            etc,
+        })
+    }
 }
+
+
 
 
 pub fn open_as_string(path: &String, name: &String, ext: &str) -> Result<String, errors::Error> {
@@ -110,3 +131,5 @@ pub(super) fn parse_webhook_json_placeholders(path: &String, name: &String) -> R
 
     Ok(placeholders)
 }
+
+

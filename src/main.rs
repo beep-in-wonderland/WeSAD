@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::env::{current_dir, args};
 use std::str::FromStr;
 
+use daemonize::Daemonize;
 
 
 // lib import
@@ -16,13 +17,15 @@ use bbnd::{
 
 // Public struct to hold all args passed during CLI initialization of the service.
 pub struct CLIArgs {
-    pub log_level : Level,
+    log_level : Level,
+    daemonize: bool,
 }
 
 impl Default for CLIArgs {
     fn default() -> Self {
         Self {
             log_level : Level::Info,
+            daemonize : false,
         }
     }
 }
@@ -37,6 +40,14 @@ fn main() -> () {
     // Check if the current binary is running in a dev environment
     let is_dev_build: bool = check_dev_build()
         .unwrap_or(true);
+
+    if cli_args.daemonize {
+        println!("Daemonizing process...");
+        match daemonize(){
+            Ok(_) => (),
+            Err(e) => panic!("Failed to daemonize: {e}"),
+        };
+    }
     
     // Initialize the daemon (it's not a daemon yet lol)
     let mut daemon = bbnd::daemon::Daemon::new(
@@ -67,12 +78,12 @@ fn check_dev_build() -> Result<bool, Box<dyn error::Error>> {
     // Check for the dev build folders emulating the linux filesystem
     if root_dir.join("dev/etc").is_dir() 
         && root_dir.join("dev/log").is_dir() 
-        && root_dir.join("dev/persist").is_dir() 
+        && root_dir.join("dev/lib").is_dir() 
         && exists(root_dir.join("target/debug/bbnd")).unwrap()
     {
         // If this is running from the debug directory, the relative folder "~/state/" will exist
         // and is functionally the same as /usr/lib/bbnd/
-        return Ok(true);
+        return Ok(false);
     }
 
     return Ok(false)
@@ -86,16 +97,41 @@ fn parse_cli_args() -> Result<CLIArgs, Box<dyn error::Error>> {
     let args: Vec<String> = args().collect();
 
     // Main argument loop - iterating in keyword pairs
-    for i in (1 .. args.len()).step_by(2) {
-        dbg!(&args[i], &args[i+1]);
-        if args[i] == "-l"
-            || args[i] == "--log-level"{
-            cli_args.log_level = log::Level::from_str(&args[i+1])
-                .expect("Error - Invalid Log Level. Please select from ERROR, WARN, INFO, DEBUG");
-        }
+    for i in 1 .. args.len() {
+        match args[i].as_str() {
+            "-l" | "--log-level" => {
+                if i < args.len() {
+                    cli_args.log_level = log::Level::from_str(&args[i+1])
+                        .expect("Error - Invalid Log Level. Please select from ERROR, WARN, INFO, DEBUG");
+                }
+            },
+            "-d" | "--detach" => {
+                cli_args.daemonize = true
+            }
+            _ => ()
+        };
     }
 
     Ok(cli_args)
 }
 
 
+fn daemonize() -> Result<String, bbnd::errors::Error> {
+
+    let dir = current_dir()?;
+    println!("Working dir: {}", dir.to_str().unwrap().to_string());
+
+    let daemonize = Daemonize::new()
+        .pid_file(&dir.join("dev/log/daemon.pid"))
+        .chown_pid_file(true) // is optional, see `Daemonize` documentation
+        .working_directory(&dir) // for default behaviour.
+        .user("beep")
+        .group("beep") // Group name
+        .umask(0o022)    // Set umask, `0o027` by default.
+        .privileged_action(|| "Executed before drop privileges");
+
+        match daemonize.start() {
+            Ok(s) => Ok(s.to_string()),
+            Err(e) => Err(bbnd::errors::Error::DaemErr(e))
+        }
+    }

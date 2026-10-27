@@ -29,4 +29,7 @@ pub enum Error {
 
     #[error("HTTP Error: {0}")]
     HttpErr(String),
+
+    #[error("Daemonize Error: {0}")]
+    DaemErr(#[from] daemonize::Error),
 }
