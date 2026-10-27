@@ -3,8 +3,9 @@ use mail_send::mail_auth::hickory_resolver::proto::serialize::binary::Place;
 use super::*;
 use crate::JoinHandle;
 use crate::axum::{
-    routing::{post},
+    routing::{post, get},
     extract::{State, Json},
+    http::StatusCode,
 };
 use crate::serde::Deserialize;
 
@@ -81,6 +82,7 @@ async fn build_listener(guard: Arc<Mutex<database::Session>>, target_ip: String)
 
     let app: axum::Router = axum::Router::new()
         .route("/status", post(status_handler))
+        .route("/health", get(health_check))
         .with_state(guard);
 
     let listener = tokio::net::TcpListener::bind(target_ip).await?;
@@ -93,13 +95,13 @@ async fn build_listener(guard: Arc<Mutex<database::Session>>, target_ip: String)
 async fn status_handler(
     State(guard): State<Arc<Mutex<database::Session>>>, 
     Json(payload): Json<StatusUpdate>
-) -> axum::http::StatusCode {
+) -> StatusCode {
 
     info!("POST received to HTTP listener for webhook: {}", &payload.webhook);
 
     if payload.update_type.to_lowercase().trim().ne("status") {
         error!("Incorrect webhook type for endpoint /status");
-        return axum::http::StatusCode::NOT_ACCEPTABLE;
+        return StatusCode::NOT_ACCEPTABLE;
     }
 
     let session = guard.lock().expect("poisoned");
@@ -117,8 +119,11 @@ async fn status_handler(
         }
     };
 
-    axum::http::StatusCode::OK
+    StatusCode::OK
 
 }
 
-    
+async fn health_check() -> StatusCode {
+    info!("Health check received");
+    StatusCode::OK
+}

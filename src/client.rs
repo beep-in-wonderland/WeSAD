@@ -1,5 +1,7 @@
 use super::*;
 use crate::json::object;
+use crate::axum::http::StatusCode;
+use crate::thiserror::Error;
 
 pub use crate::daemon::listener::PlaceholderValue;
 
@@ -7,20 +9,35 @@ pub struct Client {
     addr : String,
 }
 
+#[derive(Debug,Error)]
+pub enum ClientErr {
+    #[error("HTTP error ")]
+    NotFound(#[from] reqwest::Error)
+}
+
 
 impl Client {
 
-    pub fn new() -> Self 
+    pub fn new() -> Result<Self, ClientErr> 
     {
-        Client { addr: "http://127.0.0.1:22000/status".to_string() }
+        let addr = "http://127.0.0.1:22000";
+
+        Client::validate_daemon(&addr)?;
+
+        Ok(Client { 
+            addr: addr.to_string().clone(),
+        })
     }
 
-    pub fn new_from_ip<T>(addr: &T) -> Self 
+    pub fn new_from_ip<T>(addr: &T) -> Result<Self, ClientErr>
     where T: Display + Clone
     {
-        Client { 
+
+        Client::validate_daemon(&addr)?;
+
+        Ok(Client { 
             addr: addr.to_string().clone(),
-        }
+        })
     }
 
     pub fn send_placeholders<T>(&self, webhook: T, placeholders: Vec<daemon::listener::PlaceholderValue>) 
@@ -44,9 +61,11 @@ impl Client {
     {
 
         println!("{}", &payload);
+        let mut url = self.addr.clone();
+        url.push_str("/status");
 
         let resp = reqwest::blocking::Client::new()
-            .post(&self.addr)
+            .post(url)
             .header("Content-Type", "application/json")
             .body(payload)
             .send().unwrap().text().unwrap();
@@ -67,9 +86,17 @@ impl Client {
     }
 
 
-    fn validate_daemon(&self) 
-    {
-        // TODO send a GET to the daemon to check for health
+    fn validate_daemon<T>(addr: &T) -> Result<StatusCode, ClientErr>
+    where T: Display + Clone
+    {   
+        let mut url = addr.to_string().clone();
+        url.push_str("/health");
+
+        let resp = reqwest::blocking::Client::new()
+            .get(url)
+            .send()?;
+
+        Ok(resp.status())
     }
 }
 
