@@ -9,7 +9,6 @@ use std::thread::{self, JoinHandle};
 use std::collections::HashMap;
 
 // all crates for the project
-use daemonize;
 use sqlite; // managing persistent data
 use json; // parsing config files
 use thiserror; // error macros
@@ -19,6 +18,7 @@ use fancy_regex;
 use reqwest;
 use axum;
 use serde;
+use directories;
 
 
 pub mod daemon;

@@ -30,15 +30,16 @@ pub(super) mod updater;
 #[cfg(test)]
 mod tests;
 
-const PATH_WEBHOOKS_ETC: &str = "bbnd/webhooks.d";
-
+const PATH_WEBHOOKS_ETC: &str = "webhooks.d";
+const DEFAULT_ADDR: &str = "127.0.0.1";
+const DEFAULT_PORT: &str = "22000";
 
 /// Regex capture which will split a fully qualified file path with extension into three non-overlapping captures:
 /// example: ``/this/is/my/file.conf``
 /// `dir = /this/is/my/`
 /// `name = file`
 /// `ext = .conf`
-const REGEX_CONF: &str = "(?<dir>^[(?:\\/|\\\\)0-9a-zA-Z_\\- ]+(?:\\.d)?(?:\\/|\\\\))(?<name>[0-9a-zA-Z_\\-. ]+)(?<ext>\\.conf)$";
+const REGEX_CONF: &str = "(?<dir>^[(?:\\/|\\\\)0-9a-zA-Z_\\-\\. ]+(?:\\.d)?(?:\\/|\\\\))(?<name>[0-9a-zA-Z_\\-. ]+)(?<ext>\\.conf)$";
 const REGEX_PLACEHOLDERS: &str = "(\\$\\$(?<flag>[\\w]+)\\$\\$)";
 
 
@@ -67,7 +68,7 @@ impl RuntimeConfig {
         let json_str = io::open_as_string(
             &paths.get_etc().to_str().unwrap().to_string(),
             &"bbnd".to_string(),
-             &".conf".to_string()
+            &".conf".to_string()
         ).unwrap_or(
             // If the file wasn't found, generate an empty json str so defaults get populated
             "{\"never gonna\" : \"give you up\"}".to_string() 
@@ -104,8 +105,8 @@ impl RuntimeConfig {
                 target = target[key].clone();
             } else {
                 return match key {
-                    "listener_addr" => "127.0.0.1",
-                    "listener_port" => "22000",
+                    "listener_addr" => DEFAULT_ADDR,
+                    "listener_port" => DEFAULT_PORT,
                     _               => ""
                 }.to_string()
             }
@@ -141,10 +142,10 @@ pub struct Daemon {
 impl Daemon {
 
     /// Initialization function of the daemon only requires that the paths be specified for this runtime.
-    pub fn new(is_dev_build: bool, log_level: &logging::Level) -> Result<Self, errors::Error> {
+    pub fn new(is_dev_build: bool, log_level: &logging::Level) -> Result<Self, errors::Error> {      
         // TODO Rewrite this as a builder eventually with .with_dev_build() as a buildparam
         let paths = io::ProgramPaths::get_paths(is_dev_build);
-
+        dbg!(paths.get_log());
         logging::init_logger(log_level, paths.get_log());
 
         // Initialize persistent local db.
@@ -153,9 +154,6 @@ impl Daemon {
             .expect("An unexpected error occurred initializing the database.");
         
         let config = RuntimeConfig::new(&paths);
-
-        
-
 
         Ok (Self { 
                 paths,
@@ -167,13 +165,15 @@ impl Daemon {
     pub fn run(&mut self) -> Result<(), errors::Error> {
 
         // Read configs and store data in db
-        self.parse_all_webhook_configs()?;
+        if let Err(e) = self.parse_all_webhook_configs() {
+            panic!("Error occurred reading webhook configs: {e}");
+        }
 
         // Lock the session mutex and drop all orphaned values
-
         let session = self.session.lock().expect("poisoned");
         database::write::drop_orphaned_values(&session)?;
         drop(session);
+
 
 
         // Spawns a thread to continuously update webhooks with current database values
@@ -191,10 +191,15 @@ impl Daemon {
         Ok (())
     }
 
-
     fn parse_all_webhook_configs(&mut self) -> Result<(), errors::Error> {
         log::debug!("Starting webhook parse");
-        let webhooks = read_dir(&self.paths.get_etc().join(PATH_WEBHOOKS_ETC))?;
+        dbg!(self.paths.get_etc());
+        dbg!(self.paths.get_persist());
+        dbg!(self.paths.get_log());
+
+        let webhooks_dir = &self.paths.get_etc().join(PATH_WEBHOOKS_ETC);
+        dbg!(&webhooks_dir);
+        let webhooks = read_dir(webhooks_dir)?;
         let mut webhook_path: PathBuf;
 
         let regex_conf = Regex::new(REGEX_CONF)?;
@@ -208,6 +213,7 @@ impl Daemon {
 
         for webhook in webhooks {
             webhook_path = webhook.unwrap().path();
+            dbg!(&webhook_path);
 
             let target_string = webhook_path.display().to_string();
             captures = regex_conf.captures(&target_string)?;
