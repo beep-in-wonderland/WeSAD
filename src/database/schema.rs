@@ -1,6 +1,6 @@
 use super::*;
 
-pub(super) fn validate_schema_from_connection(connection: &Connection) -> Result<(), errors::Error> {
+pub(super) fn validate_schema_from_connection(_connection: &Connection) -> Result<(), errors::Error> {
 
     // TODO implement table validation for columns once final architecture is built
     // If pass, return Ok(())

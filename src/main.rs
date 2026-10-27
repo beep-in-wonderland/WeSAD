@@ -1,12 +1,9 @@
 use std::error;
 // standard library imports
-use std::fs::{exists, read_dir, File};
-use std::path::{Path, PathBuf};
-use std::env::current_dir;
-use std::env::args;
+use std::fs::exists;
+use std::path::PathBuf;
+use std::env::{current_dir, args};
 use std::str::FromStr;
-use std::net::TcpListener;
-use std::thread::{self, JoinHandle};
 
 
 
@@ -15,9 +12,6 @@ use bbnd::{
     self,
     logging::Level,
 };
-
-
-
 
 
 // Public struct to hold all args passed during CLI initialization of the service.

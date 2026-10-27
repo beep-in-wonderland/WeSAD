@@ -1,5 +1,3 @@
-use super::*;
-
 pub mod read;
 pub mod write;
 mod schema;
@@ -9,11 +7,10 @@ mod tests;
 
 use std::fs::File;
 
-use dbus::arg::RefArg;
 use crate::{Path,PathBuf};
 use crate::sqlite::{self, Connection};
 use crate::errors;
-use crate::logging::{info,error,debug,warn};
+use crate::logging::*;
 
 pub const TAB_WEBHOOKS: &str = "webhooks";
 pub const COL_WEBHOOK_NAME: &str = "webhook";
@@ -50,7 +47,7 @@ impl Session {
         Ok(Self {connection,})
     }
 
-    pub fn init_from_path(path_str: &str) -> Result<Self, errors::Error> {
+    pub fn _init_from_path(path_str: &str) -> Result<Self, errors::Error> {
 
         let db_path: &PathBuf = &PathBuf::from(path_str);
         let connection: Connection = Session::open_db_at_path(db_path)?;

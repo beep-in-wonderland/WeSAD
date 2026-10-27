@@ -1,11 +1,9 @@
-use crate::database;
-
 use super::*;
 
 #[test]
 pub fn read_webhook_id() {
 
-    let session = Session::init_from_path(
+    let session = Session::_init_from_path(
         "/home/beep/Dev/bbnd/dev/persist/bbnd.db").expect("DB path not found");
     let test_webhook_name: &String = &format!("bbnd-status");
 

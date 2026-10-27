@@ -1,6 +1,6 @@
+use mail_send::mail_auth::hickory_resolver::proto::serialize::binary::Place;
+
 use super::*;
-use super::database::Session;
-use crate::TcpListener;
 use crate::JoinHandle;
 use crate::axum::{
     routing::{post},
@@ -39,13 +39,21 @@ impl Display for StatusUpdate {
 
 
 #[derive(Deserialize)]
-struct PlaceholderValue {
-    placeholder: String,
-    value: String
+pub struct PlaceholderValue {
+    pub placeholder: String,
+    pub value: String
+}
+
+impl PlaceholderValue {
+    pub fn new<T>(placeholder: T, value: T) -> Self 
+    where T: Display + Clone,
+    {
+        PlaceholderValue { placeholder: placeholder.to_string().clone(), value: value.to_string().clone() }
+    }
 }
 
 
-pub fn run(guard: Arc<Mutex<database::Session>>, runtime_config: &RuntimeConfig) -> Result<JoinHandle<()>, errors::Error> {
+pub(super) fn run(guard: Arc<Mutex<database::Session>>, runtime_config: &RuntimeConfig) -> Result<JoinHandle<()>, errors::Error> {
     
     let target_ip = format!("{}:{}", runtime_config.listener_addr, runtime_config.listener_port);
     

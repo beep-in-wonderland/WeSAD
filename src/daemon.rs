@@ -1,11 +1,9 @@
 use super::*;
 
-use core::fmt;
 use std::io::Read;
 use std::ops::Not;
 use std::str::FromStr;
 use std::thread;
-use std::thread::JoinHandle;
 
 use crate::database::Session;
 use crate::errors::Error::*;
@@ -23,12 +21,11 @@ use crate::json;
 use chrono;
 use fancy_regex::Captures;
 use json::JsonValue;
-use tokio::runtime::Runtime;
 
 
 pub mod io;
-mod listener;
-mod updater;
+pub(super) mod listener;
+pub(super) mod updater;
 
 #[cfg(test)]
 mod tests;
@@ -147,6 +144,8 @@ impl Daemon {
     pub fn new(is_dev_build: bool, log_level: &logging::Level) -> Result<Self, errors::Error> {
         // TODO Rewrite this as a builder eventually with .with_dev_build() as a buildparam
         let paths = io::ProgramPaths::get_paths(is_dev_build);
+
+        logging::init_logger(log_level, paths.get_log());
 
         // Initialize persistent local db.
         let session = 

@@ -1,4 +1,4 @@
-use crate::{database::read::webhook_by_name, webhook};
+use crate::webhook;
 
 use super::*;
 
@@ -131,45 +131,6 @@ pub(super) fn set_all_orphaned(connection: &Connection, table: &str) -> Result<(
     statement.next()?;
 
     debug!("Table {} set all orphaned", table);
-    Ok(())
-}
-
-
-/// Sets the `orphaned` flag of a specific table record to `val`
-fn set_webhook_orphaned_by_name(connection: &Connection, name: &String, val: bool) -> Result<(), errors::Error> {
-
-    let query = format!("UPDATE {} SET orphaned = :val WHERE webhook = :name", TAB_WEBHOOKS);
-    let mut statement = connection.prepare(query)?;
-
-    statement.bind((":val", 
-        match val {
-            true  => "1",
-            false => "0"
-        }
-    ))?;
-    statement.bind((":name", name.as_str()))?;
-
-    statement.next()?;
-    Ok(())
-}
-
-
-/// Sets the `orphaned` flag of a specific table record to `val`
-fn set_placeholder_orphaned_by_name(connection: &Connection, name: &String, placeholder: &String, val: bool) -> Result<(), errors::Error> {
-
-    let query = format!("UPDATE {} SET orphaned = :val WHERE webhook = :name AND placeholder = :placeholder", TAB_PLACEHOLDERS);
-    let mut statement = connection.prepare(query)?;
-
-    statement.bind((":val", 
-        match val {
-            true  => "1",
-            false => "0"
-        }
-    ))?;
-    statement.bind((":name", name.as_str()))?;
-    statement.bind((":placeholder", placeholder.as_str()))?;
-
-    statement.next()?;
     Ok(())
 }
 

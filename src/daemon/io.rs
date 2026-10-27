@@ -75,7 +75,7 @@ pub fn open_as_string(path: &String, name: &String, ext: &str) -> Result<String,
 }
 
 
-pub fn parse_webhook_config(path: &String, name: &String) -> Result<WebhookConfigContents, errors::Error> {
+pub(super) fn parse_webhook_config(path: &String, name: &String) -> Result<WebhookConfigContents, errors::Error> {
 
     // Open the config file
     let conf_str: &String = &open_as_string(path, name, ".conf")?;
@@ -94,7 +94,7 @@ pub fn parse_webhook_config(path: &String, name: &String) -> Result<WebhookConfi
 }
 
 
-pub fn parse_webhook_json_placeholders(path: &String, name: &String) -> Result<Vec<String>, errors::Error> {
+pub(super) fn parse_webhook_json_placeholders(path: &String, name: &String) -> Result<Vec<String>, errors::Error> {
 
     let mut placeholders = Vec::new();
 
