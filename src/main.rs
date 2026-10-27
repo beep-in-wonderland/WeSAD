@@ -6,6 +6,7 @@ use std::env::{current_dir, args};
 use std::str::FromStr;
 
 use daemonize::Daemonize;
+use directories;
 
 
 // lib import
@@ -83,7 +84,7 @@ fn check_dev_build() -> Result<bool, Box<dyn error::Error>> {
     {
         // If this is running from the debug directory, the relative folder "~/state/" will exist
         // and is functionally the same as /usr/lib/bbnd/
-        return Ok(false);
+        return Ok(true);
     }
 
     return Ok(false)
@@ -118,15 +119,17 @@ fn parse_cli_args() -> Result<CLIArgs, Box<dyn error::Error>> {
 
 fn daemonize() -> Result<String, bbnd::errors::Error> {
 
-    let dir = current_dir()?;
-    println!("Working dir: {}", dir.to_str().unwrap().to_string());
+    let dirs = directories::ProjectDirs::from(
+            "com", "beepdodev", "bbnd")
+            .expect("Failed to find ENV directories");
+
+    let dir = dirs.runtime_dir().unwrap();
+    std::fs::create_dir_all(dir)?;
 
     let daemonize = Daemonize::new()
-        .pid_file(&dir.join("dev/log/daemon.pid"))
-        .chown_pid_file(true) // is optional, see `Daemonize` documentation
+        .pid_file(&dir.join("daemon.pid"))
+        .chown_pid_file(false) // is optional, see `Daemonize` documentation
         .working_directory(&dir) // for default behaviour.
-        .user("beep")
-        .group("beep") // Group name
         .umask(0o022)    // Set umask, `0o027` by default.
         .privileged_action(|| "Executed before drop privileges");
 
