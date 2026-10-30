@@ -7,6 +7,8 @@ use std::str::FromStr;
 use std::sync::{Arc,Mutex};
 use std::thread::{self, JoinHandle};
 use std::collections::HashMap;
+use std::ops::Not;
+use std::io::Read;
 
 // all crates for the project
 use sqlite; // managing persistent data
@@ -22,6 +24,7 @@ use directories;
 
 
 pub mod daemon;
+pub mod io;
 pub mod client;
 pub mod errors;
 pub mod logging;

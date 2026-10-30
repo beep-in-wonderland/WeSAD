@@ -1,15 +1,12 @@
 use super::*;
 
-use std::io::Read;
-use std::ops::Not;
-use std::str::FromStr;
-use std::thread;
 
 use crate::database::Session;
-use crate::errors::Error::*;
+use crate::io;
 use crate::read_dir;
 use crate::PathBuf;
-use crate::File;
+use crate::thread;
+use crate::Not;
 
 use crate::fancy_regex::Regex;
 use crate::webhook;
@@ -20,122 +17,34 @@ use crate::json;
 
 use chrono;
 use fancy_regex::Captures;
-use json::JsonValue;
 
 
-pub mod io;
 pub(super) mod listener;
 pub(super) mod updater;
 
 #[cfg(test)]
 mod tests;
 
-const PATH_WEBHOOKS_ETC: &str = "webhooks.d";
-const DEFAULT_ADDR: &str = "127.0.0.1";
-const DEFAULT_PORT: &str = "22000";
 
-/// Regex capture which will split a fully qualified file path with extension into three non-overlapping captures:
-/// example: ``/this/is/my/file.conf``
-/// `dir = /this/is/my/`
-/// `name = file`
-/// `ext = .conf`
-const REGEX_CONF: &str = "(?<dir>^[(?:\\/|\\\\)0-9a-zA-Z_\\-\\. ]+(?:\\.d)?(?:\\/|\\\\))(?<name>[0-9a-zA-Z_\\-. ]+)(?<ext>\\.conf)$";
-const REGEX_PLACEHOLDERS: &str = "(\\$\\$(?<flag>[\\w]+)\\$\\$)";
-
-
-struct WebhookConfigContents {
-    name : String,
-    url : String,
-    webhook_type: webhook::Type,
-    interval: String,
-    period: i64,
+pub(super) enum ThreadHandle<T> {
+    Updater(JoinHandle<T>),
+    Listener(JoinHandle<T>),
 }
 
-
-struct RuntimeConfig {
-    listener_addr : String,
-    listener_port : String,
-    smtp_user: String,
-    smtp_target: String,
-    smtp_host: String,
-    smtp_port: String,
-}
-
-
-impl RuntimeConfig {
-    fn new(paths: &io::ProgramPaths) -> Self {
-
-        let json_str = io::open_as_string(
-            &paths.get_etc().to_str().unwrap().to_string(),
-            &"bbnd".to_string(),
-            &".conf".to_string()
-        ).unwrap_or(
-            // If the file wasn't found, generate an empty json str so defaults get populated
-            "{\"never gonna\" : \"give you up\"}".to_string() 
-        );
-
-        let config = json::parse(json_str.as_str()).expect("Either config was found or blank was generated");
-
-        let result = RuntimeConfig { 
-            listener_addr: RuntimeConfig::has_key_or_default(
-                &config, vec!["listener_addr"]), 
-            listener_port: RuntimeConfig::has_key_or_default(
-                &config, vec!["listener_port"]), 
-            smtp_user: RuntimeConfig::has_key_or_default(
-                &config, vec!["smtp_config", "smtp_user"]), 
-            smtp_target: RuntimeConfig::has_key_or_default(
-                &config, vec!["smtp_config", "smtp_target"]), 
-            smtp_host: RuntimeConfig::has_key_or_default(
-                &config, vec!["smtp_config", "smtp_host"]), 
-            smtp_port: RuntimeConfig::has_key_or_default(
-                &config, vec!["smtp_config", "smtp_port"]), 
-        };
-
-        debug!("{}", result);
-        result
-    }
-
-
-    fn has_key_or_default(jsonval: &JsonValue, keys: Vec<&str>) -> String {
-
-        let mut target: JsonValue = jsonval.clone();
-
-        for key in keys {
-            if target.has_key(key) {
-                target = target[key].clone();
-            } else {
-                return match key {
-                    "listener_addr" => DEFAULT_ADDR,
-                    "listener_port" => DEFAULT_PORT,
-                    _               => ""
-                }.to_string()
-            }
-        }
-        return target.to_string()
-
+impl ThreadHandle<Result<(),errors::Error>> {
+    fn is_finished(&self) -> bool {
+        match self {
+            ThreadHandle::Updater(u) => u.is_finished(),
+            ThreadHandle::Listener(u) => u.is_finished()
+        }    
     }
 }
-
-impl Display for RuntimeConfig {
-
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "RuntimeConfig:
-        listener-ip: {}:{}
-        smtp user: {}
-        smtp target: {}
-        smtp host: {}:{}", 
-        self.listener_addr, self.listener_port, 
-        self.smtp_user, self.smtp_target,
-        self.smtp_host, self.smtp_port)
-    }
-}
-
 
 
 pub struct Daemon {
     paths : io::ProgramPaths,
     session : Arc<Mutex<database::Session>>,
-    runtime_config: RuntimeConfig,
+    runtime_config: io::RuntimeConfig,
 }
 
 
@@ -153,7 +62,7 @@ impl Daemon {
             database::Session::init(&paths.get_persist())
             .expect("An unexpected error occurred initializing the database.");
         
-        let config = RuntimeConfig::new(&paths);
+        let config = io::RuntimeConfig::new(&paths);
 
         Ok (Self { 
                 paths,
@@ -166,7 +75,7 @@ impl Daemon {
 
         // Read configs and store data in db
         if let Err(e) = self.parse_all_webhook_configs() {
-            panic!("Error occurred reading webhook configs: {e}");
+            error!("Error occurred reading webhook configs. Consider investigating and restarting the daemon: {e}");
         }
 
         // Lock the session mutex and drop all orphaned values
@@ -175,21 +84,50 @@ impl Daemon {
         drop(session);
 
 
-
         // Spawns a thread to continuously update webhooks with current database values
-        let updater_handle = updater::run(Arc::clone(&self.session)).expect("Program does nothing if this fails");
+        let updater_handle = updater::run(
+            Arc::clone(&self.session))
+            .expect("Program does nothing if this fails");
 
         // Spawns a thread to continuously listen for & execute database updates
         let listener_handle = listener::run(
             Arc::clone(&self.session), &self.runtime_config)
             .expect("Program does nothing if this fails");
 
-        // TODO On a failed thread, catch the unwind, report the error to the logger, and then try and restart the thread?
-        updater_handle.join().unwrap();
-        listener_handle.join().unwrap();
+        Daemon::thread_handle_loop(&updater_handle, &listener_handle)?;
 
         Ok (())
     }
+
+
+    fn thread_handle_loop(
+        updater: &ThreadHandle<Result<(), errors::Error>>, 
+        listener: &ThreadHandle<Result<(), errors::Error>>) 
+    -> Result<(), errors::Error> 
+    {
+        loop  {
+            if updater.is_finished() {
+                // It must have errored - investigate
+                error!("Updater loop failed unexpectedly. Attempting to restart...")
+            } else if listener.is_finished() {
+                error!("HTTP listener failed unexpectedly. Attempting to restart...")
+                // It must have errored - investigate
+            }
+
+            Daemon::recover_from_thread_failure(&updater, &listener)
+                    .expect("It is not possible to recover from the current state.");
+        }
+    }
+    
+    fn recover_from_thread_failure(
+        updater: &ThreadHandle<Result<(), errors::Error>>, 
+        listener: &ThreadHandle<Result<(), errors::Error>>)
+    -> Result<(), errors::Error>
+    {
+
+        Ok(())
+    }
+
 
     fn parse_all_webhook_configs(&mut self) -> Result<(), errors::Error> {
         log::debug!("Starting webhook parse");
@@ -197,17 +135,17 @@ impl Daemon {
         dbg!(self.paths.get_persist());
         dbg!(self.paths.get_log());
 
-        let webhooks_dir = &self.paths.get_etc().join(PATH_WEBHOOKS_ETC);
+        let webhooks_dir = &self.paths.get_etc().join(io::ETC_PATH_WEBHOOKS);
         dbg!(&webhooks_dir);
         let webhooks = read_dir(webhooks_dir)?;
         let mut webhook_path: PathBuf;
 
-        let regex_conf = Regex::new(REGEX_CONF)?;
+        let regex_conf = Regex::new(io::REGEX_CONF)?;
         let mut captures: Option<Captures<'_, String>> ;
         let mut path: String;
         let mut name: String;
 
-        let mut webhook_config: WebhookConfigContents;
+        let mut webhook_config: io::WebhookConfigContents;
         let mut webhook_placeholders: Vec<String>;
 
 
@@ -257,30 +195,4 @@ impl Daemon {
     }
 
 
-}
-
-
-fn validate_config_lines(json_data: &JsonValue, name: &String) -> Result<(), errors::Error> {
-
-    if json_data["url"].is_string() { 
-    } else {
-        ConfigErr(format!("{}.conf: invalid webhook url.", &name));
-    }
-
-    if json_data["type"].is_string() { 
-    } else {
-        ConfigErr(format!("{}.conf: invalid webhook type. Choose \"status\" or \"alert\".", &name));
-    }
-
-    if json_data["interval"].is_string() { 
-    } else {
-        ConfigErr(format!("{}.conf: invalid webhook interval type. Choose \"seconds\", \"minutes\", or \"hours\".", &name));
-    }
-
-    if json_data["period"].is_number() { 
-    } else {
-        ConfigErr(format!("{}.conf: invalid webhook interval value. Choose an integer.", &name));
-    }
-
-    Ok(())
 }

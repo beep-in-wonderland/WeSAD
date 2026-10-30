@@ -6,7 +6,7 @@ use crate::thiserror::Error;
 pub use crate::daemon::listener::PlaceholderValue;
 
 pub struct Client {
-    addr : String,
+    endpoint : String,
 }
 
 #[derive(Debug,Error)]
@@ -20,23 +20,23 @@ impl Client {
 
     pub fn new() -> Result<Self, ClientErr> 
     {
-        let addr = "http://0.0.0.0:22000";
+        let endpoint = format!("{}:{}", io::DEFAULT_ADDR, io::DEFAULT_PORT);
 
-        Client::validate_daemon(&addr)?;
+        Client::validate_daemon(&endpoint)?;
 
         Ok(Client { 
-            addr: addr.to_string().clone(),
+            endpoint,
         })
     }
 
-    pub fn new_from_ip<T>(addr: &T) -> Result<Self, ClientErr>
+    pub fn new_from_ip<T>(endpoint: &T) -> Result<Self, ClientErr>
     where T: Display + Clone
     {
 
-        Client::validate_daemon(&addr)?;
+        Client::validate_daemon(&endpoint)?;
 
         Ok(Client { 
-            addr: addr.to_string().clone(),
+            endpoint: endpoint.to_string().clone(),
         })
     }
 
@@ -61,7 +61,7 @@ impl Client {
     {
 
         println!("{}", &payload);
-        let mut url = self.addr.clone();
+        let mut url = self.endpoint.clone();
         url.push_str("/status");
 
         let resp = reqwest::blocking::Client::new()

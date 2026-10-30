@@ -2,24 +2,28 @@ use std::time::Duration;
 
 use super::*;
 use crate::errors::Error::HttpErr;
-use crate::{daemon::io::open_as_string};
-use crate::thread::{self, JoinHandle};
+use crate::thread;
 use crate::HashMap;
 use crate::reqwest;
 
 const URI_FLAGS_COMPONENT: &str = "with_components=true";
 const URI_FLAGS_WAIT: &str = "wait=true";
+const MIN_WAIT_TIME: i64 = 1000; // In milliseconds
 
 /// Spawns a thread which continuously updates status type webhooks with session db values
-pub fn run(guard: Arc<Mutex<Session>>) -> Result<JoinHandle<()>, errors::Error> {
+pub fn run(guard: Arc<Mutex<Session>>) -> Result<daemon::ThreadHandle<Result<(), errors::Error>>, errors::Error> {
     
-    Ok(thread::spawn(move || {
-        update_loop(guard);
-    }))
+    Ok(
+        daemon::ThreadHandle::Updater(
+            thread::spawn(move || {
+                update_loop(guard)
+            })
+        )
+    )
 }
 
 
-fn update_loop(guard: Arc<Mutex<Session>>) -> () {
+fn update_loop(guard: Arc<Mutex<Session>>) -> Result<(), errors::Error> {
     // TODO - implement fallback logic for errors
 
     // Each iteration, the loop should:
@@ -33,7 +37,7 @@ fn update_loop(guard: Arc<Mutex<Session>>) -> () {
     // 8. Put the thread to sleep for `sleep_duration` seconds
 
     let mut sleep_target_timestamp;
-    let mut next_timestamp;
+    let mut next_millis;
     let mut now_millis: i64;
     let mut sleep_duration_millis: u64 = 0;
     
@@ -42,7 +46,7 @@ fn update_loop(guard: Arc<Mutex<Session>>) -> () {
     loop {
         debug!("Starting updater loop iteration");
 
-        let session = guard.lock().expect("poisoned");
+        let session = guard.lock().expect("Mutex poisoned in updater update_loop. Exiting thread.");
         let webhooks = database::read::webhook_statuses(&session).unwrap();
 
         now_millis = chrono::Utc::now().timestamp_millis();
@@ -60,10 +64,17 @@ fn update_loop(guard: Arc<Mutex<Session>>) -> () {
 
         for webhook in webhooks {
             if webhook.should_update(&now_millis) {
-                let msg_id = rt.block_on(update_status_webhook(&guard, &webhook)).unwrap();
+                let msg_id = rt.block_on(
+                    update_status_webhook(&guard, &webhook))
+                    // If the update fails, we should log it and skip this iteration.
+                    .unwrap_or_else( |e| {
+                        error!("Webhook update for {} failed with error: {}", webhook.name, e);
+                        None
+                    });
 
+                
 
-                let session = guard.lock().expect("poisoned");
+                let session = guard.lock().expect("Mutex poisoned in updater update_loop. Exiting thread.");
                 if msg_id.is_some() {
                     // If a new msg_id was returned, update it in the database
                     database::write::update_webhook_msg_id(&session, &webhook.name, &msg_id.unwrap()).unwrap();
@@ -72,16 +83,16 @@ fn update_loop(guard: Arc<Mutex<Session>>) -> () {
                 database::write::update_webhook_last(&session, &webhook.name, &now_millis.to_string()).unwrap();
 
                 // Since we just executed, webhook.last is now stale. Use now_millis instead for finding next execution time
-                next_timestamp = webhook.period + now_millis;
+                next_millis = webhook.period + now_millis;
 
             } else {
                 // If no update occurred, use the last execution from the webhook status
-                next_timestamp = webhook.period + webhook.last;
+                next_millis = MIN_WAIT_TIME + webhook.last;
             }
 
             // Lastly, check if the current time delta is the lowest, update if so
-            if next_timestamp < sleep_target_timestamp {
-                sleep_target_timestamp = next_timestamp;
+            if next_millis < sleep_target_timestamp {
+                sleep_target_timestamp = next_millis;
                 sleep_duration_millis = (sleep_target_timestamp - now_millis) as u64;
                 debug!("New shortest sleep target for update loop: {}", &sleep_duration_millis / 1000)
             }
@@ -98,9 +109,16 @@ fn update_loop(guard: Arc<Mutex<Session>>) -> () {
 }
 
 
+/// Updates the webhook in `status` based on the `{status.name}.json` template, using current placeholder values
+/// from the database. This function will also check for existing message_id from the database, and verify it
+/// with a GET to the webhook before sending the PATCH. If the GET returns unsuccessfully, it will instead send
+/// a new webhook message via POST. 
 async fn update_status_webhook(guard: &Arc<Mutex<Session>>, status: &webhook::Status) -> Result<Option<String>, errors::Error> {
 
-    let mut content = open_as_string(&status.path, &status.name, ".json")?;
+    // Open the .json webhook template as a mutable string
+    let mut content = io::open_as_string(&status.path, &status.name, ".json")?;
+    
+    // Update the contents of the string in-place using current database values.
     update_content_string(&guard, &mut content, &status.name)?;
 
     if status.msg_id == 0 {
@@ -128,9 +146,11 @@ async fn update_status_webhook(guard: &Arc<Mutex<Session>>, status: &webhook::St
 }
 
 
+/// Performs in-place update of the provided `content` String using current placeholder values from the database.
+/// The webhook `name` is used as a key to retrieve all placeholders and their values.
 fn update_content_string(guard: &Arc<Mutex<Session>>, content: &mut String, name: &String) -> Result<(), errors::Error> {
     
-    let session = guard.lock().expect("poisoned");
+    let session = guard.lock().expect("Mutex poisoned during updater update_content_string. Exiting thread.");
     let placeholder_map = database::read::all_placeholders_by_webhook_name(&session, name)?;
     // Release the mutex lock
     drop(session);
@@ -140,7 +160,8 @@ fn update_content_string(guard: &Arc<Mutex<Session>>, content: &mut String, name
     Ok(())
 }
 
-
+/// Performs in-place replacement of values in `content` by searching for instances of `"$$key$$"` and 
+/// replacing it with `"value"` for all `"key" : "value"` pairs in `map`.
 pub(super) fn do_placeholder_replacements(map: HashMap<String, String>, content: &mut String) -> Result<(), errors::Error> {
 
     let mut temp: String = content.clone();
