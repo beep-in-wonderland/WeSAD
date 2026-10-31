@@ -10,7 +10,7 @@ use directories;
 
 
 // lib import
-use bbnd::{
+use wesad::{
     self,
     logging::Level,
 };
@@ -51,7 +51,7 @@ fn main() -> () {
     }
     
     // Initialize the service
-    let mut service = bbnd::service::Service::new(
+    let mut service = wesad::service::Service::new(
         is_dev_build,
         &cli_args.log_level,
     )
@@ -77,10 +77,10 @@ fn check_dev_build() -> Result<bool, Box<dyn error::Error>> {
     if root_dir.join("dev/etc").is_dir() 
         && root_dir.join("dev/log").is_dir() 
         && root_dir.join("dev/lib").is_dir() 
-        && exists(root_dir.join("target/debug/bbnd")).unwrap()
+        && exists(root_dir.join("target/debug/wesad")).unwrap()
     {
         // If this is running from the debug directory, the relative folder "~/state/" will exist
-        // and is functionally the same as /usr/lib/bbnd/
+        // and is functionally the same as /usr/lib/wesad/
         return Ok(true);
     }
 
@@ -114,10 +114,10 @@ fn parse_cli_args() -> Result<CLIArgs, Box<dyn error::Error>> {
 }
 
 
-fn daemonize() -> Result<String, bbnd::errors::Error> {
+fn daemonize() -> Result<String, wesad::errors::Error> {
 
     let dirs = directories::ProjectDirs::from(
-            "com", "beepdodev", "bbnd")
+            "com", "beepdodev", "wesad")
             .expect("Failed to find ENV directories");
 
     let dir = dirs.runtime_dir().unwrap();
@@ -132,6 +132,6 @@ fn daemonize() -> Result<String, bbnd::errors::Error> {
 
         match daemonize.start() {
             Ok(s) => Ok(s.to_string()),
-            Err(e) => Err(bbnd::errors::Error::DaemErr(e))
+            Err(e) => Err(wesad::errors::Error::DaemErr(e))
         }
     }

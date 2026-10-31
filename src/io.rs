@@ -52,7 +52,7 @@ impl RuntimeConfig {
 
         let json_str = io::open_as_string(
             &paths.get_etc().to_str().unwrap().to_string(),
-            &"bbnd".to_string(),
+            &"wesad".to_string(),
             &".conf".to_string()
         ).unwrap_or(
             // If the file wasn't found, generate an empty json str so defaults get populated
@@ -165,7 +165,7 @@ impl ProgramPaths {
 
     fn init_env_directories() -> Result<Self, errors::Error> {
         let dirs = directories::ProjectDirs::from(
-            "com", "beepdodev", "bbnd")
+            "com", "beepdodev", "wesad")
             .expect("Failed to build ProjectDirs directories");
 
         let etc = dirs.config_dir().to_path_buf();
