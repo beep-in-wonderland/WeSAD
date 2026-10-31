@@ -208,6 +208,13 @@ pub(super) fn read_webhook_config(path: &String, name: &String) -> Result<Webhoo
     let conf_json = json::parse(conf_str)?;
 
     validate_config_lines(&conf_json, &name)?;
+    
+    // Check if a message_id was provided in the config
+    let msg_id = if conf_json["msg_id"].is_null() {
+        None
+    } else {
+        Some(conf_json["msg_id"].to_string())
+    };
 
     Ok(WebhookConfigContents { 
         name: name.clone(),
@@ -215,7 +222,7 @@ pub(super) fn read_webhook_config(path: &String, name: &String) -> Result<Webhoo
         webhook_type : webhook::Type::from_str(conf_json["type"].as_str().unwrap()).unwrap(), 
         interval : conf_json["interval"].to_string(),
         period : conf_json["period"].as_i64().unwrap(),
-        msg_id : if conf_json["msg_id"].is_string() {Some(conf_json["msg_id"].to_string())} else {None}
+        msg_id,
     })
 }
 

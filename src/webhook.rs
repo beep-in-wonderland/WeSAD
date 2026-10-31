@@ -2,12 +2,27 @@ use super::*;
 use std::fmt;
 use std::ops::Add;
 
+pub struct Status {
+    pub name: String,
+    pub url: String,
+    pub path: String,
+    pub webhook_type: webhook::Type,
+    pub period: webhook::Period,
+    pub last: i64,
+    pub msg_id: Option<String>,
+}
+
+impl Status {
+    pub fn should_update(&self, now: &i64) -> bool {
+        *now > (self.last + self.period.get())
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Type {
     STATUS,
     ALERT,
 }
-
 
 impl FromStr for Type {
 
@@ -23,7 +38,6 @@ impl FromStr for Type {
 
 }
 
-
 impl Display for Type {
 
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -34,25 +48,6 @@ impl Display for Type {
         }
     }
 }
-
-
-pub struct Status {
-    pub name: String,
-    pub url: String,
-    pub path: String,
-    pub webhook_type: webhook::Type,
-    pub period: webhook::Period,
-    pub last: i64,
-    pub msg_id: Option<String>,
-}
-
-
-impl Status {
-    pub fn should_update(&self, now: &i64) -> bool {
-        *now > (self.last + self.period.get())
-    }
-}
-
 
 #[derive(Clone,Copy,Debug)]
 pub struct Period {

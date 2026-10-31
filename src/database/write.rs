@@ -154,11 +154,15 @@ fn init_add_webhook_parent(connection: &Connection, webhook: &webhook::Status) -
     let query = format!("INSERT INTO 
             {TAB_WEBHOOKS} ({COL_WEBHOOK_NAME}, {COL_WEBHOOK_URL}, {COL_WEBHOOK_TYPE},
             {COL_PATH}, {COL_PERIOD}, {COL_ORPHANED}, {COL_LAST}, {COL_MESSAGE_ID}) 
-            VALUES (:name, :url, :type, :path, :period, '0', 0, '0')");
+            VALUES (:name, :url, :type, :path, :period, '0', 0, :msg_id)");
 
     let mut statement = connection.prepare(query).unwrap();
 
-    
+    // Check if the incoming `msg_id` is valid, and if not, provide a dummy default
+    let msg_id = match &webhook.msg_id {
+        Some(msg) => msg,
+        None => &"0".to_string(),
+    };
 
     statement.bind::<&[(_, sqlite::Value)]>(&[
         (":name", webhook.name.clone().into()),
@@ -166,6 +170,7 @@ fn init_add_webhook_parent(connection: &Connection, webhook: &webhook::Status) -
         (":type", webhook.webhook_type.to_string().into()),
         (":path", webhook.path.to_string().into()),
         (":period", webhook.period.get().into()),
+        (":msg_id", msg_id.as_str().into())
     ])?;
 
     statement.next()?;
@@ -175,6 +180,8 @@ fn init_add_webhook_parent(connection: &Connection, webhook: &webhook::Status) -
 
 
 /// Helper function for set_webhook_parent(). Updates the webhook instead of inserting a new entry.
+/// Specifically avoids updating `msg_id`, since presumably if the webhook already exists, it has
+/// already generated or consumed a message id.
 fn init_update_webhook_parent(connection: &Connection, webhook: &webhook::Status) -> Result<(), errors::Error> {
 
     let query = format!("
