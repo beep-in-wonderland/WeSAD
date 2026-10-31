@@ -50,16 +50,13 @@ fn main() -> () {
         };
     }
     
-    // Initialize the daemon (it's not a daemon yet lol)
+    // Initialize the service
     let mut daemon = bbnd::daemon::Daemon::new(
         is_dev_build,
         &cli_args.log_level,
     )
     .expect("An unexpected error occurred initializing the daemon.");
 
-    // Run the (not) daemon. This call will join on one of the spawned threads that loops indefinitely.
-    // TODO add some logic to restart the daemon on a thread failure, as well as have the threads 
-    // check with each other when one fails.
     daemon.run().expect("Somethin real bad happened");
 
 }

@@ -123,7 +123,6 @@ impl Period {
         self.value
     }
 
-
     pub(super) fn set<T>(&mut self, val: T) -> () 
     where i64: From<T>
     {

@@ -1,6 +1,6 @@
 use crate::thiserror;
 
-
+/// Dear god forgive me for my sins. I will atone for this (fix it) some day (TODO)
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("sqlite failed: {0}")]

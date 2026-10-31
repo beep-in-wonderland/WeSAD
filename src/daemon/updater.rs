@@ -23,32 +23,28 @@ pub fn run(guard: Arc<Mutex<Session>>) -> Result<daemon::ThreadHandle<Result<(),
 
 /// Main loop for the updater thread. This function is responsible for periodically
 /// pulling current placeholders from the database and POSTing to all configured
-/// webhooks. 
+/// webhooks.
+/// Each iteration, the loop will:
+///     1. Fetch and iterate over all `status` type webhooks
+///     2. Send due webhook updates, and update the `last` field for each status.
+///     3. Keep track of the shortest time until the *next* scheduled webhook execution.
+///     4. Once all webhooks are iterated, sleep until the next scheduled webhook.
 fn update_loop(guard: Arc<Mutex<Session>>) -> Result<(), errors::Error> {
-    // TODO - implement fallback logic for errors
-
-    // Each iteration, the loop should:
-    // 1. Lock the mutex
-    // 2. Fetch all status type webhooks
-    // 3. Compare the `last` + `period` fields to the current DateTime
-    // 4. Execute any updates where necessary, update the `last` fields
-    // 5. Find the minimum seconds of the `last` fields for the next update
-    // 6. Copy the data into a local variable `sleep_duration`
-    // 7. Release the mutex
-    // 8. Put the thread to sleep for `sleep_duration` seconds
 
     let mut sleep_target_timestamp;
     let mut next_millis: i64;
     let mut now_millis: i64;
     let mut sleep_duration_millis: u64 = 0;
     
+    // Create a tokio async runtime for sending multiple HTTP requests
     let rt = tokio::runtime::Runtime::new().unwrap();
 
     loop {
         debug!("Starting updater loop iteration");
 
         let session = guard.lock().expect("Mutex poisoned in updater update_loop. Exiting thread.");
-        let webhooks = database::read::webhook_statuses(&session).unwrap();
+        let webhooks = database::read::webhook_statuses(&session)
+            .expect("Fatal: The database cannot be read.");
 
         now_millis = chrono::Utc::now().timestamp_millis();
         sleep_target_timestamp = 1<<60; // A big number to start with
@@ -63,6 +59,19 @@ fn update_loop(guard: Arc<Mutex<Session>>) -> Result<(), errors::Error> {
         // Release the mutex guard 
         drop(session);
 
+
+        // TODO
+        // The current below loop does not properly implement async, and each call to 
+        // the process_webhook_update function will block on the current iteration of 
+        // the for-loop.
+        // 
+        // Need to rewrite the process_webhook_update as an async function, gather all
+        // the futures in a temp vector, and only after sending all the http requests
+        // I need to .await and process all the futures in a separate for loop.
+        // 
+        // In order to do this, I probably also need to move the for loops into their 
+        // own async function so that I can use .await
+        
         for webhook in webhooks {
             
             match process_webhook_update(&rt, &now_millis, &guard, &webhook) {
