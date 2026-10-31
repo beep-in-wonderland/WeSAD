@@ -51,13 +51,13 @@ fn main() -> () {
     }
     
     // Initialize the service
-    let mut daemon = bbnd::daemon::Daemon::new(
+    let mut service = bbnd::service::Service::new(
         is_dev_build,
         &cli_args.log_level,
     )
     .expect("An unexpected error occurred initializing the daemon.");
 
-    daemon.run().expect("Somethin real bad happened");
+    service.run().expect("Somethin real bad happened");
 
 }
 

@@ -3,7 +3,7 @@ use crate::json::object;
 use crate::axum::http::StatusCode;
 use crate::thiserror::Error;
 
-pub use crate::daemon::listener::PlaceholderValue;
+pub use crate::service::listener::PlaceholderValue;
 
 pub struct Client {
     endpoint : String,
@@ -40,7 +40,7 @@ impl Client {
         })
     }
 
-    pub fn send_placeholders<T>(&self, webhook: T, placeholders: Vec<daemon::listener::PlaceholderValue>) 
+    pub fn send_placeholders<T>(&self, webhook: T, placeholders: Vec<service::listener::PlaceholderValue>) 
     where T: Display + Clone
     {
 

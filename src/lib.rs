@@ -23,7 +23,7 @@ use serde;
 use directories;
 
 
-pub mod daemon;
+pub mod service;
 pub mod io;
 pub mod client;
 pub mod errors;

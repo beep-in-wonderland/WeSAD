@@ -9,10 +9,10 @@ const URI_FLAGS_WAIT: &str = "wait=true";
 const MIN_WAIT_TIME: i64 = 1000; // In milliseconds
 
 /// Spawns a thread which continuously updates status type webhooks with session db values
-pub fn run(guard: Arc<Mutex<Session>>) -> Result<daemon::ThreadHandle<Result<(), errors::Error>>, errors::Error> {
+pub fn run(guard: Arc<Mutex<Session>>) -> Result<service::ThreadHandle<Result<(), errors::Error>>, errors::Error> {
     
     Ok(
-        daemon::ThreadHandle::Updater(
+        service::ThreadHandle::Updater(
             thread::spawn(move || {
                 update_loop(guard)
             })

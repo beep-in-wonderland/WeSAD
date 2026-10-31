@@ -41,14 +41,14 @@ impl ThreadHandle<Result<(),errors::Error>> {
 }
 
 
-pub struct Daemon {
+pub struct Service {
     paths : io::ProgramPaths,
     session : Arc<Mutex<database::Session>>,
     runtime_config: io::RuntimeConfig,
 }
 
 
-impl Daemon {
+impl Service {
 
     /// Initialization function of the daemon only requires that the paths be specified for this runtime.
     pub fn new(is_dev_build: bool, log_level: &logging::Level) -> Result<Self, errors::Error> {      
