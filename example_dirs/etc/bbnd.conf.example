@@ -1,0 +1,10 @@
+{
+    "listener_addr": "0.0.0.0",
+    "listener_port": "22000",
+    "smtp_config" : {
+        "smtp_user":   "your@domain.com",
+        "smtp_target": "your@inbox.dev",
+        "smtp_host":   "your.smtp.host",
+        "smtp_port":   "587"
+    }
+}

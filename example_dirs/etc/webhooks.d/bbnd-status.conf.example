@@ -1,0 +1,7 @@
+{
+    "url" : "https://discord.com/api/webhooks/beep/in/wonderland",
+    "type" : "status",
+    "interval" : "seconds",
+    "period" : 30
+    "msg_id" : "Leave blank if none/unknown"
+}

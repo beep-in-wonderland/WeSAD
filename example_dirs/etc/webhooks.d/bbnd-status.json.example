@@ -1,0 +1,32 @@
+{
+  "content": "",
+  "tts": false,
+  "flags": 32768,
+  "embeds": [],
+  "components": [
+    {
+      "id": 930546088,
+      "type": 17,
+      "accent_color": 14878207,
+      "components": [
+        {
+          "id": 660479670,
+          "type": 10,
+          "content": "# Hello, webhook!"
+        },
+        {
+          "id": 145985795,
+          "type": 14,
+          "divider": true,
+          "spacing": 1
+        },
+        {
+          "id": 704448582,
+          "type": 10,
+          "content": "Never gonna $$give$$\nNever gonna $$let$$\nNever gonna $$run$$"
+        }
+      ]
+    }
+  ],
+  "actions": {}
+}
