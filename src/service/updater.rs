@@ -52,7 +52,7 @@ fn update_loop(guard: Arc<Mutex<Session>>) -> Result<(), errors::Error> {
         // Debug line for timestamping, remove when finished
         // let _ = write::update_webhook_placeholder(
         //     &session, 
-        //     &"bbnd-status".to_string(), 
+        //     &"wesad-status".to_string(), 
         //     &"timestamp".to_string(), 
         //     &now_millis.to_string());
     

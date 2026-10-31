@@ -1,11 +1,13 @@
 use super::*;
 
+// This use statement deliberately pulls all the macros into scope so
+// that other modules can simply `use crate::logging::*;` to do the same.
 pub use log::{info,warn,debug,error,Level};
 
 
 pub fn init_logger(log_level: &Level, log_path: &PathBuf) {
 
-    let log_path: &PathBuf = &log_path.join("bbnd.log");
+    let log_path: &PathBuf = &log_path.join("wesad.log");
     if !exists(log_path).unwrap() {
         let _ = File::create_new(log_path);
     };

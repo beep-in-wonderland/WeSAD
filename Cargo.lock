@@ -132,27 +132,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
 
 [[package]]
-name = "bbnd"
-version = "0.1.0"
-dependencies = [
- "axum",
- "chrono",
- "daemonize",
- "dbus",
- "directories",
- "fancy-regex",
- "fern",
- "json",
- "log",
- "mail-send",
- "reqwest",
- "serde",
- "sqlite",
- "thiserror",
- "tokio",
-]
-
-[[package]]
 name = "bit-set"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2431,6 +2410,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b96554aa2acc8ccdb7e1c9a58a7a68dd5d13bccc69cd124cb09406db612a1c9b"
 dependencies = [
  "rustls-pki-types",
+]
+
+[[package]]
+name = "wesad"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "daemonize",
+ "dbus",
+ "directories",
+ "fancy-regex",
+ "fern",
+ "json",
+ "log",
+ "mail-send",
+ "reqwest",
+ "serde",
+ "sqlite",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]

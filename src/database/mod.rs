@@ -40,7 +40,7 @@ impl Session {
     /// can be accessed.
     pub(super) fn init(persist_dir: &PathBuf) -> Result<Self, errors::Error> {
 
-        let db_path: &PathBuf = &persist_dir.join("bbnd.db");
+        let db_path: &PathBuf = &persist_dir.join("wesad.db");
         let connection = Session::open_db_at_path(db_path)?;
 
         debug!("Database initialization complete");
