@@ -8,6 +8,9 @@ use crate::axum::{
 use crate::serde::Deserialize;
 
 
+const MAX_HTTP_FAIL_PER_MIN: usize = 5;
+
+
 #[derive(Deserialize)]
 struct StatusUpdate {
     webhook: String,
@@ -66,6 +69,8 @@ pub(super) fn run(guard: Arc<Mutex<database::Session>>, runtime_config: &io::Run
     )
 }
 
+
+
 fn listen_http(guard: Arc<Mutex<database::Session>>, target_ip: String) -> Result<(), errors::Error> {
 
     let rt = tokio::runtime::Builder::new_current_thread()
@@ -79,6 +84,9 @@ fn listen_http(guard: Arc<Mutex<database::Session>>, target_ip: String) -> Resul
         if let Err(e) = rt.block_on(build_listener(&guard, &target_ip)) {
             error!("HTTP listener failed: {e}");
         }
+
+        // Only try and restart once per second.
+        thread::sleep(std::time::Duration::from_secs(1));
     }
 }
 

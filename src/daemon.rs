@@ -34,8 +34,8 @@ pub(super) enum ThreadHandle<T> {
 impl ThreadHandle<Result<(),errors::Error>> {
     fn is_finished(&self) -> bool {
         match self {
-            ThreadHandle::Updater(u) => u.is_finished(),
-            ThreadHandle::Listener(u) => u.is_finished()
+            ThreadHandle::Updater(h) => h.is_finished(),
+            ThreadHandle::Listener(h) => h.is_finished()
         }    
     }
 }
@@ -83,7 +83,18 @@ impl Daemon {
         database::write::drop_orphaned_values(&session)?;
         drop(session);
 
+        let (updater_handle, 
+            listener_handle
+        ) = self.get_runtime_threads()?;
 
+        self.thread_handle_loop(&updater_handle, &listener_handle)?;
+
+        Ok (())
+    }
+
+
+    fn get_runtime_threads(&self) -> Result<(ThreadHandle<Result<(),errors::Error>>, ThreadHandle<Result<(),errors::Error>>), errors::Error>
+    {   
         // Spawns a thread to continuously update webhooks with current database values
         let updater_handle = updater::run(
             Arc::clone(&self.session))
@@ -94,38 +105,49 @@ impl Daemon {
             Arc::clone(&self.session), &self.runtime_config)
             .expect("Program does nothing if this fails");
 
-        Daemon::thread_handle_loop(&updater_handle, &listener_handle)?;
-
-        Ok (())
+        Ok((updater_handle, listener_handle))
     }
 
 
     fn thread_handle_loop(
+        &mut self,
         updater: &ThreadHandle<Result<(), errors::Error>>, 
         listener: &ThreadHandle<Result<(), errors::Error>>) 
     -> Result<(), errors::Error> 
     {
         loop  {
+            // Check if either handle has finished executing, which should only happen on a thread-unrecoverable error.
             if updater.is_finished() {
-                // It must have errored - investigate
-                error!("Updater loop failed unexpectedly. Attempting to restart...")
+                error!("Updater loop failed unexpectedly. Attempting to restart...");
+
+                self.recover_from_thread_failure()
+                    .expect("It is not possible to recover from the current state.");
+
             } else if listener.is_finished() {
-                error!("HTTP listener failed unexpectedly. Attempting to restart...")
-                // It must have errored - investigate
+                error!("HTTP listener failed unexpectedly. Attempting to restart...");
+
+                self.recover_from_thread_failure()
+                    .expect("It is not possible to recover from the current state.");
             }
 
-            Daemon::recover_from_thread_failure(&updater, &listener)
-                    .expect("It is not possible to recover from the current state.");
+            // Put the loop to sleep so we only check for thread failure every second
+            thread::sleep(std::time::Duration::from_secs(1));
         }
     }
     
-    fn recover_from_thread_failure(
-        updater: &ThreadHandle<Result<(), errors::Error>>, 
-        listener: &ThreadHandle<Result<(), errors::Error>>)
-    -> Result<(), errors::Error>
-    {
 
-        Ok(())
+    fn recover_from_thread_failure(
+        &mut self)
+    -> Result<(ThreadHandle<Result<(), errors::Error>>, ThreadHandle<Result<(), errors::Error>>), errors::Error>
+    {
+        // Get a new clean session object
+        let session = database::Session::init(&self.paths.get_persist())
+            .expect("Database could not be opened. Exiting.");
+
+        // Put it into a new Arc<Mutex<>> and then send it into the daemon object
+        self.session = Arc::new(Mutex::new(session));
+
+        self.get_runtime_threads()
     }
 
 
