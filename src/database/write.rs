@@ -14,7 +14,7 @@ pub fn drop_orphaned_values(session: &Session) -> Result<(), errors::Error> {
 
 
 /// Takes the provided webhook and either updates the existing record or inserts it into the db.
-pub fn init_webhook_parent(session: &Session, webhook: &webhook::Descriptor) -> Result<(), errors::Error> {
+pub fn init_webhook_parent(session: &Session, webhook: &webhook::Status) -> Result<(), errors::Error> {
 
     let name = &webhook.name;
 
@@ -149,7 +149,7 @@ fn drop_orphaned_values_from_table(connection: &Connection, table: &str) -> Resu
 
 
 /// Helper function for set_webhook_parent(). Inserts the webhook as a new entry in the table.
-fn init_add_webhook_parent(connection: &Connection, webhook: &webhook::Descriptor) -> Result<(), errors::Error> {
+fn init_add_webhook_parent(connection: &Connection, webhook: &webhook::Status) -> Result<(), errors::Error> {
 
     let query = format!("INSERT INTO 
             {TAB_WEBHOOKS} ({COL_WEBHOOK_NAME}, {COL_WEBHOOK_URL}, {COL_WEBHOOK_TYPE},
@@ -175,7 +175,7 @@ fn init_add_webhook_parent(connection: &Connection, webhook: &webhook::Descripto
 
 
 /// Helper function for set_webhook_parent(). Updates the webhook instead of inserting a new entry.
-fn init_update_webhook_parent(connection: &Connection, webhook: &webhook::Descriptor) -> Result<(), errors::Error> {
+fn init_update_webhook_parent(connection: &Connection, webhook: &webhook::Status) -> Result<(), errors::Error> {
 
     let query = format!("
             UPDATE 

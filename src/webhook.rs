@@ -14,8 +14,7 @@ impl FromStr for Type {
     type Err = ();
 
     fn from_str(str: &str) -> Result<Type, Self::Err> {
-
-        match str.to_lowercase().trim() {
+        match str.to_string().to_lowercase().trim() {
             "status" => Ok(Type::STATUS),
             "alert"  => Ok(Type::ALERT),
             _        => Err(()),
@@ -37,41 +36,14 @@ impl Display for Type {
 }
 
 
-#[derive(Clone)]
-pub struct Descriptor {
-    pub name : String,
-    pub url : String,
-    pub webhook_type: Type,
-    pub path: String,
-    pub period: Period,
-}
-
-
-impl Display for Descriptor {
-
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "
-            Webhook {}
-            url: {}
-            type: {}
-            period: {}
-            ", 
-            self.name,
-            self.url,
-            self.webhook_type,
-            self.period.to_string(),
-        )
-    }
-}
-
-
 pub struct Status {
     pub name: String,
     pub url: String,
     pub path: String,
+    pub webhook_type: webhook::Type,
     pub period: webhook::Period,
     pub last: i64,
-    pub msg_id: u64,
+    pub msg_id: Option<String>,
 }
 
 

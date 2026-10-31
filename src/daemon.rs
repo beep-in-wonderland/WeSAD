@@ -187,25 +187,41 @@ impl Daemon {
                 path = captures.as_ref().unwrap().get(1).unwrap().as_str().to_string();
                 name = captures.as_ref().unwrap().get(2).unwrap().as_str().to_string();
 
-                webhook_config = io::read_webhook_config(&path, &name)?;
-                webhook_placeholders = io::read_webhook_json_placeholders(&path, &name)?;
+
+                match io::read_webhook_config(&path, &name) {
+                    Ok(config) => webhook_config = config,
+                    Err(e) => {
+                        error!("Failed to read webhook config {}/{}.conf. Skipping with error code {e}", &path, &name);
+                        continue
+                    }
+                }
+
+                match io::read_webhook_json_placeholders(&path, &name) {
+                    Ok(placeholders) => webhook_placeholders = placeholders,
+                    Err(e) => {
+                        error!("Failed to parse webhook placeholders from {}/{}.json. Skipping with error code {e}", &path, &name);
+                        continue
+                    }
+                }
 
                 // Calculate the period, in seconds, based on `interval` and `period`
                 let period= webhook::Period::from_type_value(
                    &webhook_config.interval, webhook_config.period);
 
-                log::debug!("Creating webhook descriptor for {}", name);
-                let descriptor: webhook::Descriptor = webhook::Descriptor {
+                log::debug!("Creating webhook status for {}", name);
+                let status = webhook::Status {
                     name : webhook_config.name.clone(),
                     url : webhook_config.url,
-                    webhook_type : webhook_config.webhook_type,
                     path,
-                    period : period
+                    webhook_type : webhook_config.webhook_type,
+                    period : period,
+                    last: 0,
+                    msg_id: webhook_config.msg_id
                 };
                 
                 let session = self.session.lock().expect("poisoned");
 
-                database::write::init_webhook_parent(&session, &descriptor)?;
+                database::write::init_webhook_parent(&session, &status)?;
                 database::write::init_webhook_placeholders(&session, &webhook_config.name, &webhook_placeholders)?;
 
             }

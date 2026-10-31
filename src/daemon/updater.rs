@@ -152,7 +152,7 @@ async fn http_send_webhook_update(guard: &Arc<Mutex<Session>>, status: &webhook:
     // Update the contents of the string in-place using current database values.
     update_content_string(&guard, &mut content, &status.name)?;
 
-    if status.msg_id == 0 {
+    if status.msg_id.is_none() {
         // No existing message id, so we should send a new message rather than patch an existing one
         let msg_id = http_post_new_webhook(status, &content).await?;
         return Ok(Some(msg_id));
@@ -239,7 +239,10 @@ async fn http_post_new_webhook(status: &webhook::Status, content: &String) -> Re
 
 async fn http_patch_existing_webhook(status: &webhook::Status, content: &String) -> Result<(), errors::Error> {
 
-    let uri = format!("{}/messages/{}?{}&{}", status.url, status.msg_id, URI_FLAGS_COMPONENT, URI_FLAGS_WAIT);
+    let msg_id = status.msg_id.as_ref()
+                            .expect("msg_id should have validated in calling function http_send_webhook_update.");
+
+    let uri = format!("{}/messages/{}?{}&{}", status.url, msg_id, URI_FLAGS_COMPONENT, URI_FLAGS_WAIT);
 
     let client = reqwest::Client::new();
 
@@ -264,7 +267,10 @@ async fn http_patch_existing_webhook(status: &webhook::Status, content: &String)
 
 async fn http_check_webhook_message_exists(status: &webhook::Status) -> Result<bool, errors::Error> {
 
-    let uri = format!("{}/messages/{}?{}&{}", status.url, status.msg_id, URI_FLAGS_COMPONENT, URI_FLAGS_WAIT);
+    let msg_id = status.msg_id.as_ref()
+                            .expect("msg_id should have validated in calling function http_send_webhook_update.");
+
+    let uri = format!("{}/messages/{}?{}&{}", status.url, msg_id, URI_FLAGS_COMPONENT, URI_FLAGS_WAIT);
 
     let client = reqwest::Client::new();
 
