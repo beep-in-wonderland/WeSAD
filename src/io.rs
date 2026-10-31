@@ -33,6 +33,7 @@ pub(super) struct WebhookConfigContents {
     pub(super) webhook_type: webhook::Type,
     pub(super) interval: String,
     pub(super) period: i64,
+    pub(super) msg_id: Option<String>,
 }
 
 
@@ -126,7 +127,7 @@ impl ProgramPaths {
 
     // Initializes the paths for the program files based on whether this executable
     // is running from a dev build folder or on a real machine.
-    pub fn get_paths(is_dev_build: bool) -> Self {
+    pub fn build_paths(is_dev_build: bool) -> Self {
         if is_dev_build {
             ProgramPaths::init_dev_directories()
         } else {
@@ -165,7 +166,7 @@ impl ProgramPaths {
     fn init_env_directories() -> Result<Self, errors::Error> {
         let dirs = directories::ProjectDirs::from(
             "com", "beepdodev", "bbnd")
-            .expect("Failed to find ENV directories");
+            .expect("Failed to build ProjectDirs directories");
 
         let etc = dirs.config_dir().to_path_buf();
         let log = dirs.state_dir().unwrap().to_path_buf();
@@ -199,7 +200,7 @@ pub(super) fn open_as_string(path: &String, name: &String, ext: &str) -> Result<
 }
 
 
-pub(super) fn parse_webhook_config(path: &String, name: &String) -> Result<WebhookConfigContents, errors::Error> {
+pub(super) fn read_webhook_config(path: &String, name: &String) -> Result<WebhookConfigContents, errors::Error> {
 
     // Open the config file
     let conf_str: &String = &open_as_string(path, name, ".conf")?;
@@ -214,11 +215,12 @@ pub(super) fn parse_webhook_config(path: &String, name: &String) -> Result<Webho
         webhook_type : webhook::Type::from_str(conf_json["type"].as_str().unwrap()).unwrap(), 
         interval : conf_json["interval"].to_string(),
         period : conf_json["period"].as_i64().unwrap(),
+        msg_id : if conf_json["msg_id"].is_string() {Some(conf_json["msg_id"].to_string())} else {None}
     })
 }
 
 
-pub(super) fn parse_webhook_json_placeholders(path: &String, name: &String) -> Result<Vec<String>, errors::Error> {
+pub(super) fn read_webhook_json_placeholders(path: &String, name: &String) -> Result<Vec<String>, errors::Error> {
 
     let mut placeholders = Vec::new();
 

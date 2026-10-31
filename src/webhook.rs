@@ -87,25 +87,28 @@ pub struct Period {
     value : i64,
 }
 
-
 impl Period {
-    pub fn from_millis(ms: i64) -> Self {
+    pub(super) fn from_millis(ms: i64) -> Self {
         Self { value : ms}
     }
 
-    pub fn from_secs(s: i64) -> Self {
+
+    pub(super) fn from_secs(s: i64) -> Self {
         Self { value : s*1000}
     }
 
-    pub fn from_mins(m: i64) -> Self {
+
+    pub(super) fn from_mins(m: i64) -> Self {
         Self { value : m*1000*60}
     }
 
-    pub fn from_hrs(h: i64) -> Self {
+
+    pub(super) fn from_hrs(h: i64) -> Self {
         Self { value : h*1000*60*60}
     }
 
-    pub fn from_type_value(increment: &String, val: i64) -> Self {
+
+    pub(super) fn from_type_value(increment: &String, val: i64) -> Self {
         match increment.to_lowercase().trim() {
             "milliseconds" => Period::from_millis(val),
             "seconds" => Period::from_secs(val),
@@ -115,16 +118,18 @@ impl Period {
         }
     }
 
-    pub fn get(&self) -> i64 {
+
+    pub(super) fn get(&self) -> i64 {
         self.value
     }
 
-}
 
-impl Display for Period {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.value)
+    pub(super) fn set<T>(&mut self, val: T) -> () 
+    where i64: From<T>
+    {
+        self.value = val.into();
     }
+
 }
 
 impl From<i64> for Period {
@@ -141,3 +146,11 @@ impl Add<i64> for Period {
         self.value + val
     }
 }
+
+impl Display for Period {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.value)
+    }
+}
+
+

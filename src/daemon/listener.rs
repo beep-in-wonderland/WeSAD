@@ -8,9 +8,6 @@ use crate::axum::{
 use crate::serde::Deserialize;
 
 
-const MAX_HTTP_FAIL_PER_MIN: usize = 5;
-
-
 #[derive(Deserialize)]
 struct StatusUpdate {
     webhook: String,
@@ -87,6 +84,9 @@ fn listen_http(guard: Arc<Mutex<database::Session>>, target_ip: String) -> Resul
 
         // Only try and restart once per second.
         thread::sleep(std::time::Duration::from_secs(1));
+
+        // TODO implement a dynamic error counter to decide when "too many recent errors"
+        // means that the program should abort.
     }
 }
 

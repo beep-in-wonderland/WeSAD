@@ -53,7 +53,7 @@ impl Daemon {
     /// Initialization function of the daemon only requires that the paths be specified for this runtime.
     pub fn new(is_dev_build: bool, log_level: &logging::Level) -> Result<Self, errors::Error> {      
         // TODO Rewrite this as a builder eventually with .with_dev_build() as a buildparam
-        let paths = io::ProgramPaths::get_paths(is_dev_build);
+        let paths = io::ProgramPaths::build_paths(is_dev_build);
         dbg!(paths.get_log());
         logging::init_logger(log_level, paths.get_log());
 
@@ -187,8 +187,8 @@ impl Daemon {
                 path = captures.as_ref().unwrap().get(1).unwrap().as_str().to_string();
                 name = captures.as_ref().unwrap().get(2).unwrap().as_str().to_string();
 
-                webhook_config = io::parse_webhook_config(&path, &name)?;
-                webhook_placeholders = io::parse_webhook_json_placeholders(&path, &name)?;
+                webhook_config = io::read_webhook_config(&path, &name)?;
+                webhook_placeholders = io::read_webhook_json_placeholders(&path, &name)?;
 
                 // Calculate the period, in seconds, based on `interval` and `period`
                 let period= webhook::Period::from_type_value(
