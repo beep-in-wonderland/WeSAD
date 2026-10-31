@@ -1,5 +1,7 @@
 use super::*;
 
+// This use statement deliberately pulls all the macros into scope so
+// that other modules can simply `use crate::logging::*;` to do the same.
 pub use log::{info,warn,debug,error,Level};
 
 
