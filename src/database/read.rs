@@ -1,5 +1,6 @@
 use crate::webhook;
 use crate::HashMap;
+use crate::FromStr;
 
 use super::*;
 
@@ -64,6 +65,7 @@ pub fn webhook_statuses(session: &Session) -> Result<Vec<webhook::Status>, error
             {COL_WEBHOOK_NAME},
             {COL_WEBHOOK_URL},
             {COL_PATH},
+            {COL_WEBHOOK_TYPE},
             {COL_PERIOD},
             {COL_LAST},
             {COL_MESSAGE_ID}        
@@ -82,15 +84,21 @@ pub fn webhook_statuses(session: &Session) -> Result<Vec<webhook::Status>, error
             let name = statement.read::<String, _>(COL_WEBHOOK_NAME)?;
             let url = statement.read::<String, _>(COL_WEBHOOK_URL)?;
             let path = statement.read::<String, _>(COL_PATH)?;
+
+            let webhook_type = webhook::Type::from_str(
+                statement.read::<String, _>(COL_WEBHOOK_TYPE)?.as_str())
+                .expect("The webhook status should have been validated when it was pushed into the db");
+
             let period = statement.read::<i64, _>(COL_PERIOD)?;
             let last = statement.read::<String, _>(COL_LAST)?;
             let msg_id = statement.read::<String, _>(COL_MESSAGE_ID)?;
             result.push(
                 webhook::Status { 
                     name, url, path, 
+                    webhook_type,
                     period: period.into(), 
                     last : last.parse::<i64>().unwrap(), 
-                    msg_id : msg_id.parse::<u64>().unwrap()
+                    msg_id : Some(msg_id)
                 }
             )
 

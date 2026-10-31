@@ -1,6 +1,5 @@
 use super::*;
 
-use crate::JoinHandle;
 use crate::axum::{
     routing::{post, get},
     extract::{State, Json},
@@ -53,36 +52,51 @@ impl PlaceholderValue {
 }
 
 
-pub(super) fn run(guard: Arc<Mutex<database::Session>>, runtime_config: &RuntimeConfig) -> Result<JoinHandle<()>, errors::Error> {
+pub(super) fn run(guard: Arc<Mutex<database::Session>>, runtime_config: &io::RuntimeConfig) 
+-> Result<ThreadHandle<Result<(), errors::Error>>, errors::Error> {
     
     let target_ip = format!("{}:{}", runtime_config.listener_addr, runtime_config.listener_port);
     
     Ok(
-        thread::spawn(move||{
-            listen_http(guard, target_ip);
-        })
+        ThreadHandle::Listener(
+            thread::spawn(move||{
+                listen_http(guard, target_ip)
+            })
+        )
     )
 }
 
-fn listen_http(guard: Arc<Mutex<database::Session>>, target_ip: String) -> () {
+
+
+fn listen_http(guard: Arc<Mutex<database::Session>>, target_ip: String) -> Result<(), errors::Error> {
 
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .expect("Failed to build listener runtime");
 
-    if let Err(e) = rt.block_on(build_listener(guard, target_ip)) {
-        error!("HTTP listener failed with {e}");
+    loop {
+
+        // Continuously try and listen on the provided address.
+        if let Err(e) = rt.block_on(build_listener(&guard, &target_ip)) {
+            error!("HTTP listener failed: {e}");
+        }
+
+        // Only try and restart once per second.
+        thread::sleep(std::time::Duration::from_secs(1));
+
+        // TODO implement a dynamic error counter to decide when "too many recent errors"
+        // means that the program should abort.
     }
 }
 
 
-async fn build_listener(guard: Arc<Mutex<database::Session>>, target_ip: String) -> Result<(), errors::Error> {
+async fn build_listener(guard: &Arc<Mutex<database::Session>>, target_ip: &String) -> Result<(), errors::Error> {
 
     let app: axum::Router = axum::Router::new()
         .route("/status", post(status_handler))
         .route("/health", get(health_check))
-        .with_state(guard);
+        .with_state(guard.clone());
 
     let listener = tokio::net::TcpListener::bind(target_ip).await?;
     axum::serve(listener, app).await?;
@@ -90,6 +104,8 @@ async fn build_listener(guard: Arc<Mutex<database::Session>>, target_ip: String)
     Ok(())
 }
 
+
+/// --------------------------------- Endpoint functions
 
 async fn status_handler(
     State(guard): State<Arc<Mutex<database::Session>>>, 
@@ -103,7 +119,7 @@ async fn status_handler(
         return StatusCode::NOT_ACCEPTABLE;
     }
 
-    let session = guard.lock().expect("poisoned");
+    let session = guard.lock().expect("Mutex poisoned in listener status_handler. Exiting thread.");
 
     for pl in &payload.content {
         if let Err(e) = database::write::update_webhook_placeholder(

@@ -1,4 +1,4 @@
-use crate::{HashMap, daemon::updater::do_placeholder_replacements};
+use crate::{HashMap, service::updater::do_placeholder_replacements};
 
 #[test]
 pub fn placeholder_replacement() {
