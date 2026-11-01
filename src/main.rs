@@ -16,19 +16,21 @@ use wesad::{
 };
 
 
-const HELP_TEXT: &str = r#"WeSAD - WEbhook Status and Notification Daemon
+const HELP_TEXT: &str = r#"Usage: wesad [OPTION]
+Example: wesad --detach -l warn
+
+Options:
+    -d, --daemon            Run the process detached from this terminal,
+                                i.e. as a user-space daemon.
+    -i, --init              Service initialization only. Creates the required
+                                configuration and data directories.
+    -l, --log-level [level] The logging level for terminal output and 
+                                the generated log file. 
+                                Options: error, warn, info, debug.
+
 Starts a webserver which listens for data tag updates from external programs via
 HTTP request or this crate's client API. Please visit the github page for more
 information (https://github.com/beep-in-wonderland/WeSAD).
-
-Options:
-    -d, --daemon            - Run the process detached from this terminal,
-                                i.e. as a user-space daemon.
-    -i, --init              - Run the service initialization only, to make
-                                the required project directories.
-    -l, --log-level [level] - The logging level for terminal output and 
-                                the generated log file.
-        Options: error, warn, info, debug
 "#;
 
 // Public struct to hold all args passed during CLI initialization of the service.
