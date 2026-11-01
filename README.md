@@ -1,7 +1,7 @@
 # Table of Contents
 - [Table of Contents](#table-of-contents)
 - [About](#about)
-- [OS \& Webhook Support](#os--webhook-support)
+- [OS \& webhook support](#os--webhook-support)
 - [Crate](#crate)
 - [Usage](#usage)
   - [Config](#config)
@@ -29,7 +29,7 @@ And has two primary webhook "types", mostly designed for **Discord**:
 - `alert` messages, which fire off new messages when requested.
   - Alerts are not yet implemented.
 
-# OS & Webhook Support
+# OS & webhook support
 
 WeSAD is currently designed for, and functions on, my particular Linux distribution (x86 CachyOS). Some small steps have been taken towards eventual cross-compatibility, but have not been tested. If this is something you'd like to see, please let me know!
 
@@ -97,7 +97,7 @@ Each `.conf` file contains header information about the webhook:
                             //   leave null or delete this line.
 }
 ```
-The `.json` file contains the full raw HTTP body for the webhook request. This should include all placeholder values that will be replaced by live data, called `tags`. Tags are indicated using double dollar-signs around the key, for example `Never gonna $$give$$`.
+The `.json` file contains the full raw HTTP body for the webhook request. This should also include all placeholder values that will be replaced by live data, called `tags`. Tags are indicated using double dollar-signs around the key, for example `Never gonna $$give$$`.
 
 - For an example HTTP body for **Discord**, check [astley.json](/example_dirs/etc/webhooks.d/astley.json)
 
@@ -154,7 +154,7 @@ The `astley.conf` example is set to update every `7` seconds, so wait, and soon 
 
 ![astley example](docs/examples/astley/updated.png)
 
-At this point you can experiment with changing the `example-update.json` payload, tweaking the template `astley.json`, or start otherwise pushing the limits of what you can do!
+At this point you can experiment with changing the `example-update.json` payload, tweaking the template `astley.json`, or start otherwise start setting up your own dashboard!
 
 ## Client API example
 Using the same setup as the above Astley example, you can also send the updated data using the available API:
