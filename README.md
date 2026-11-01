@@ -1,13 +1,13 @@
 # Table of Contents
 - [Table of Contents](#table-of-contents)
 - [About](#about)
+- [OS \& Webhook Support](#os--webhook-support)
 - [Crate](#crate)
-  - [OS \& Webhook Support](#os--webhook-support)
-  - [Usage](#usage)
-    - [Config](#config)
-    - [webhooks.d](#webhooksd)
-    - [Sending new data via HTTP](#sending-new-data-via-http)
-    - [Sending new data via client API](#sending-new-data-via-client-api)
+- [Usage](#usage)
+  - [Config](#config)
+  - [webhooks.d](#webhooksd)
+  - [Sending new data via HTTP](#sending-new-data-via-http)
+  - [Sending new data via client API](#sending-new-data-via-client-api)
 - [Example](#example)
   - [Astley example](#astley-example)
   - [Client API example](#client-api-example)
@@ -29,16 +29,7 @@ And has two primary webhook "types", mostly designed for **Discord**:
 - `alert` messages, which fire off new messages when requested.
   - Alerts are not yet implemented.
 
-# Crate
-This project contains both:
-1. The core daemonizable service, ran as a compiled binary.
-2. A minimal client API, accessed as a library within the crate.
-
-The client API was included to further minimize the code required for sending updates to the daemon from external scripts (see this [example](#client-api-example).
-
-The core service listens for updates via HTTP, so it is intended that you can still send status updates in situations where importing this crate is undesired or not feasible, *e.g.* some embedded devices, using other languages, etc...
-
-## OS & Webhook Support
+# OS & Webhook Support
 
 WeSAD is currently designed for, and functions on, my particular Linux distribution (x86 CachyOS). Some small steps have been taken towards eventual cross-compatibility, but have not been tested. If this is something you'd like to see, please let me know!
 
@@ -48,13 +39,22 @@ This means in cases where you know exactly what your HTTP body should contain, y
 
 That being said, currently the only supported header is `Content-Type: application/json` and is hard-coded into the service. This might change in the future.
 
-## Usage
+# Crate
+This project contains both:
+1. The core daemonizable service, ran as a compiled binary.
+2. A minimal client API, accessed as a library within the crate.
+
+The client API was included to further minimize the code required for sending updates to the daemon from external scripts (see this [example](#client-api-example).
+
+The core service listens for updates via HTTP, so it is intended that you can still send status updates in situations where importing this crate is undesired or not feasible, *e.g.* some embedded devices, using other languages, etc...
+
+# Usage
 The usage pattern for WeSAD is to:
 1. Configure your webhooks in the `webhooks.d` directory.
 2. Run the service, ideally as a constant background process.
 3. Use either HTTP POST or the client API to send updates to the service.
 
-### Config
+## Config
 The user provides configuration in the form of name-paired `.conf` and `.json` files in the project's `webhooks.d` directory, located in:
 | OS      | Config Path                                                  |
 |---------|--------------------------------------------------------------|
@@ -70,7 +70,7 @@ allows the user to specify a custom ip address and port.
 - The port can be freely changed to your liking
   - Please note the default client api entrypoint `wesad::client::Client::new()` will use the default port of `22000`. If you wish to specify a custom port, you must build the client from the full endpoint url, e.g. `localhost:10101` using the `new_from_endpoint(url)` function instead. See [this example](#client-api-example).
 
-### webhooks.d
+## webhooks.d
 Each pair of `.conf` and `.json` files must have the same name to be associated 
 with one another, and both **must** be present for the program to read them e.g. `astley.conf` and `astley.json`.
 
@@ -90,7 +90,7 @@ The `.json` file contains the full raw HTTP body for the webhook request. This s
 
 - For an example HTTP body for **Discord**, check [astley.json](/example_dirs/etc/webhooks.d/astley.json)
 
-### Sending new data via HTTP
+## Sending new data via HTTP
 By default, WeSAD will create a webserver on `localhost:22000`.
 - You can check the service is active and listening by doing an HTTP `GET` to the endpoint `localhost:22000/health`
 - Updated tag data for status webhooks is sent as a POST to the `/status` api endpoint. 
@@ -118,7 +118,7 @@ By default, WeSAD will create a webserver on `localhost:22000`.
 }
 ```
 
-### Sending new data via client API
+## Sending new data via client API
 Alternatively, data can be sent to the service via the public client API in `wesad::client`. See the [examples](#client-api-example) section for an implementation of this approach.
 
 # Example
