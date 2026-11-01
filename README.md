@@ -4,11 +4,15 @@
 - [Crate](#crate)
   - [OS \& Webhook Support](#os--webhook-support)
   - [Usage](#usage)
-  - [Architecture](#architecture)
-- [Examples](#examples)
+    - [Config](#config)
+    - [webhooks.d](#webhooksd)
+    - [Sending new data via HTTP](#sending-new-data-via-http)
+    - [Sending new data via client API](#sending-new-data-via-client-api)
+- [Example](#example)
   - [Astley example](#astley-example)
-  - [Client API](#client-api)
-
+  - [Client API example](#client-api-example)
+  - [Architecture](#architecture)
+  
 # About
 **WeSAD (WEbhook Status and Alerting Daemon)**, is a small tool built in Rust designed as a centralized self-hosted service for managing webhook messages from various data sources.
 
@@ -39,6 +43,7 @@ WeSAD is currently designed for, and functions on, my particular Linux distribut
 The service is designed primarily with **Discord**'s webhooks in mind, though more configuration options are planned to more robustly support various endpoints, such as allowing the user to specify the HTTP method & headers.
 
 ## Usage
+### Config
 The user provides configuration in the form of name-paired `.conf` and `.json` files in the project's `webhooks.d` directory, located in:
 | OS      | Config Path                                                  |
 |---------|--------------------------------------------------------------|
@@ -48,43 +53,71 @@ The user provides configuration in the form of name-paired `.conf` and `.json` f
 
 If these locations do not appear, run the program once first with the `-i` or `--init` shout (Not yet implemented).
 
+### webhooks.d
 Each pair of `.conf` and `.json` files must have the same name to be associated with one another, and both **must** be present for the program to read them e.g. `astley.conf` and `astley.json`.
-- The `.conf` file contains header information about the webhook; 
-  - The endpoint url
-  - Update type (`status` vs `alert`)
-  - Update interval
-- The `.json` file contains the full raw HTTP body for the webhook request, including all placeholder values, called `tags`.
 
-The tags are identified with double dollar-signs around the text, and are used for any piece of data in the template that should be updated by an external program, for example `Never gonna $$give$$.`
+Each `.conf` file contains header information about the webhook: 
+```json
+{
+    "url" : "https://discord.com/api/webhooks/yourwebhook",
+    "type" : "status",      // or "alert"
+    "interval" : "seconds", // or "milliseconds", "mintues", "days"
+    "period" : 7            // Based on the interval above. Integer values.
+    "msg_id" : "abc123"     // For discord webhooks. Include if editing
+                            //   an existing webhook message. Otherwise,
+                            //   leave null or delete this line.
+}
+```
+The `.json` file contains the full raw HTTP body for the webhook request. This should include all placeholder values that will be replaced by live data, called `tags`. Tags are indicated using double dollar-signs around the key, for example `Never gonna $$give$$`.
 
-By default, WeSAD will create a webserver on `localhost:22000`, and you can then send new placeholder data as a POST to the `/status` api endpoint. The body of the request should be structured as follows:
+- For an example HTTP body for **Discord**, check [astley.json](/example_dirs/etc/webhooks.d/astley.json)
 
+### Sending new data via HTTP
+By default, WeSAD will create a webserver on `localhost:22000`.
+- You can check the service is active and listening by doing an HTTP `GET` to the endpoint `localhost:22000/health`
+- Updated tag data for status webhooks is sent as a POST to the `/status` api endpoint. 
+  - The only required header is `Content-type : application/json`. 
+  - The body of the request should be structured as follows:
+```json
+{
+    "webhook" : "astley",     // webhook identifier, same name as the .conf
+    "update_type" : "status", // The webhook type
+    "content" : [             // The tags to be updated. Formatted as an array
+                              // of {tag, value} JSON obects, called TagValue
+        {
+            "tag" : "give",
+            "value" : "give you up,"
+        },
+        {
+            "tag" : "let",
+            "value" : "let you down,"
+        },
+        {
+            "tag" : "run",
+            "value" : "run around and desert you."
+        }
+    ]
+}
+```
 
+### Sending new data via client API
+Alternatively, data can be sent to the service via the public client API in `wesad::client`. See the [examples](#client-api-example) section for an implementation of this approach.
 
-
-## Architecture
-The program uses an [sqlite](https://docs.rs/sqlite/latest/sqlite/) database to store all persistent webhook and placeholder data. On startup, it will build paths to the OS's project directories using the [directories](https://docs.rs/directories/latest/directories/index.html) crate. 
-
-A long-running `listener` thread uses [tokio](https://docs.rs/tokio/latest/tokio/) to build an asynchronous TCP webserver and listen for updates which get pushed into the [sqlite](https://docs.rs/sqlite/latest/sqlite/) database. Simultaneously, the long-lived `updater` thread also uses [tokio](https://docs.rs/tokio/latest/tokio/) for sending HTTP requests to the webhook target endpoints based on the current values in the database.
-
-Each webhook configuration file contains its own information about update type, and interval. Within the `updater` thread, the program dynamically sleeps after every update cycle until the next udpate is due, so as to reduce impact on compute resources. The exact timing of the `updater` is likely quite unreliable, and your prescribed interval should be considered more an estimate than an exact value.
-
-
-# Examples
+# Example
 ## Astley example
-In the `example_dirs` directory of this repo you can find example configs `astley.conf` and `astley.json`. If you make sure to replace the `endpoint` in `astley.conf` with a valid discord webhook, you can test things out right away: 
-- Compile the binary and run it once with the `-i` or `--init` shout.
+In the [`example_dirs`](/example_dirs/) directory of this repo you can find example configs [`astley.conf`](/example_dirs/etc/webhooks.d/astley.conf) and [`astley.json`](/example_dirs/etc/webhooks.d/astley.json). If you make sure to replace the `url` in `astley.conf` with a valid discord webhook, you can test things out right away: 
+- Compile (or download) the binary and run it once with the `-i` or `--init` command line argument.
   - This will run the service in "initialization" mode which will create the required folders on your computer then exit.
-- Move the `astley.conf` and `astley.json` files into your OS's `webhooks.d` folder (see [here](#os--webhook-support) for that location)
+- Locate your OS's `wesad/etc/webhooks.d` config folder (see [here](#os--webhook-support) for that location) and move the `astley.conf` and `astley.json` files into it.
 - Run the program again, this time with no additional command line arguments.
   - This will open attached to your terminal for easy log viewing and shutdown. 
   - At this time, you should also receive the blank webhook message in your server:
 
 ![astley-new-message](docs/examples/astley/fresh.png)
 
-- Download the `example-update.json` file from `example_dirs`. This is a fully formatted tag payload designed to work with this example.
+- Download the [`example-update.json`](/example_dirs/example-update.json) file from `example_dirs`. This is a fully formatted tag payload designed to work with this example.
 - Open or otherwise navigate your terminal to the location of the `example-update.json` you just downloaded
-- Run the (Linux) command `curl -i --header "Content-Type: application/json" --data "$(cat example-update.json)" "localhost:22000/status"`
+- Run the (Linux) command `curl -i --header "Content-Type: application/json" --data "$(cat example-update.json)" "localhost:22000/status"` to send a POST with the `example-update.json` payload to the service.
 
 In your WeSAD terminal, you should see an INFO log acknowledgement of the POST request.
 
@@ -92,7 +125,9 @@ The `astley.conf` example is set to update every `7` seconds, so wait, and soon 
 
 ![astley example](docs/examples/astley/updated.png)
 
-## Client API
+At this point you can experiment with changing the `example-update.json` payload, tweaking the template `astley.json`, or start otherwise pushing the limits of what you can do!
+
+## Client API example
 Using the same setup as the above Astley example, you can also send the updated data using the available API:
 ```rust
 use wesad::client::{
@@ -101,18 +136,28 @@ use wesad::client::{
 };
 
 let client = client::Client::new().unwrap();
-// or, for a specific ip:port, use
-// let client = wesad::Client::new_from_ip("192.168.0.123:12345");
+// or, to specify the wesad endpoint, use
+// let client = wesad::Client::new_from_url("https://192.168.0.123:12345");
 
-let mut my_tag_data = Vec::new();
+let mut my_tag_data = Vec::new(); // Tags are sent in vector form...
 
-// TagValue::new uses the arguments (tag, value)
+// ... using the TagValue struct. 
+// TagValue::new uses the arguments (tag, value), and accepts any params which 
+//   implement the Display trait.
 my_tag_data.push(TagValue::new("give", "give you up"));
 my_tag_data.push(TagValue::new("let", "let you down"));
 my_tag_data.push(TagValue::new("run", "run around and desert you"));
 
-// Here, the webhook receiving the tags is `astley`
+// Here, the webhook name receiving the tags is "astley" (`.conf`)
 client.send_tags("astley", my_tag_data);
 ```
 
 ![astley-client-updated](docs/examples/astley-client/updated.png)
+
+
+## Architecture
+The program uses an [sqlite](https://docs.rs/sqlite/latest/sqlite/) database to store all persistent webhook and tag data. On startup, it will build paths to the OS's project directories using the [directories](https://docs.rs/directories/latest/directories/index.html) crate. 
+
+A long-running `listener` thread uses [tokio](https://docs.rs/tokio/latest/tokio/) to build an asynchronous TCP webserver and listen for updates which get pushed into the [sqlite](https://docs.rs/sqlite/latest/sqlite/) database. Simultaneously, the long-lived `updater` thread also uses [tokio](https://docs.rs/tokio/latest/tokio/) for sending HTTP requests to the webhook target endpoints based on the current values in the database.
+
+Each webhook configuration file contains its own information about update type, and interval. Within the `updater` thread, the program dynamically sleeps after every update cycle until the next udpate is due, so as to reduce impact on compute resources. The exact timing of the `updater` is likely quite unreliable, and your prescribed interval should be considered more an estimate than an exact value.
