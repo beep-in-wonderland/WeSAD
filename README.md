@@ -10,11 +10,11 @@
   - [Client API](#client-api)
 
 # About
-**WeSAD (WEbhook Status and Alerting Daemon)**, is a small tool built in Rust designed as a centralized service for sending webhook updates and alerts from various disconnected sources.
+**WeSAD (WEbhook Status and Alerting Daemon)**, is a small tool built in Rust designed as a centralized self-hosted service for managing webhook messages from various data sources.
 
-I made it for my home server to solve a simple problem: Building a highly modifiable discord dashboard for my various, unrelated services running on my server. Of course, there are other solutions capable of doing this, but I wanted to do it myself :)
+I made it for my home server to solve a problem: I wanted a highly modifiable discord dashboard for my various, unrelated services running on my server. Of course, there are other solutions capable of doing this, but I wanted to do it myself :)
 
-WeSAD solves this problem by acting as a single recipient for any and all status updates and alerts from my various devices and scripts. It stores all the data it receives, and then periodically refreshes webhook dashboards based on the current fresh data.
+WeSAD solves this problem by acting as a single recipient for any and all status updates and alerts from my devices, scripts, and services. It stores all the data it receives, and then periodically refreshes webhook dashboards based on the current fresh data.
 
 WeSAD allows for an indefinite number of concurrent webhooks all with independent data, update intervals, `status` messages which are edited in-place such as for dashboards, or `alert` messages which fire off when requested.
 

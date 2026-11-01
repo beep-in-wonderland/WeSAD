@@ -22,7 +22,7 @@ impl Client {
     {
         let endpoint = format!("{}:{}", io::DEFAULT_ADDR, io::DEFAULT_PORT);
 
-        Client::validate_daemon(&endpoint)?;
+        Client::validate_wesad_listener(&endpoint)?;
 
         Ok(Client { 
             endpoint,
@@ -33,7 +33,7 @@ impl Client {
     where T: Display + Clone
     {
 
-        Client::validate_daemon(&endpoint)?;
+        Client::validate_wesad_listener(&endpoint)?;
 
         Ok(Client { 
             endpoint: endpoint.to_string().clone(),
@@ -84,7 +84,7 @@ impl Client {
     }
 
 
-    fn validate_daemon<T>(addr: &T) -> Result<StatusCode, ClientErr>
+    fn validate_wesad_listener<T>(addr: &T) -> Result<StatusCode, ClientErr>
     where T: Display + Clone
     {   
         let mut url = addr.to_string().clone();
