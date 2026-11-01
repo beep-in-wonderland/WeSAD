@@ -24,9 +24,9 @@ WeSAD allows for an indefinite number of concurrent webhooks, all with:
 - Independent data
 - Update intervals
 
-And has (will have) two primary webhook "types" **Discord**:
-- `status` messages,which are edited in-place such as for dashboards, and
-- `alert` messages, which fire off new messages when requested.
+And has (will have) two (maybe more?) primary webhook "types":
+- `status` messages,which are edited in-place such as for quick-view dashboards, and
+- `alert` messages, which fire off new messages when explicitly requested.
   - Alerts are not yet implemented.
 
 # OS & webhook support
@@ -55,36 +55,33 @@ The core service listens for updates via HTTP, so it is intended that you can st
 
 # Usage
 The usage pattern for WeSAD is to:
-1. Configure your webhooks in the `webhooks.d` directory.
-2. Run the service, ideally as a constant background process.
-3. Use either HTTP POST or the client API to send updates to the service from other programs or devices.
+- Configure your webhooks in the `webhooks.d` directory.
+- Run the service, ideally as a constant background process.
+  - Use the `--help` shout to see CLI options: `wesad --help`
+- Use either HTTP POST or the client API to send updates to the service from other programs or devices.
 
-Some examples of dashboard uses:
-- Game server statuses 
-  - Player counts, server load, TPS, ...
-- Service statuses
-  - VPN health, image server status, ...
+There is a log which is saved in a location dependent on your OS, for example on Linux it should be: `~/.local/state/wesad/`. The log level can be changed with the `-l` or `--log-level` command line argument.
 
 ## Config
 The user provides configuration in the form of name-paired `.conf` and `.json` files in the project's `webhooks.d` directory, located in:
 | OS      | Config Path                                                  |
 |---------|--------------------------------------------------------------|
-| Linux   | `~/alice/.config/wesad`                                        |
+| Linux   | `~/.config/wesad`                                        |
 | Mac     | `/Users/Alice/Library/Application Support/com.beepdodev.wesad` |
 | Windows | `C:\Users\Alice\AppData\Roaming\wesad\`                        |
 
-If these locations do not appear, run the program once first with the `-i` or `--init` shout (Not yet implemented).
+If these locations do not appear, run the program once first in initialization mode: `wesad --init`.
 
-Lastly, if needed, there is a `wesad.conf` (generated with defaults on first run) located in the above directory which allows the user to specify a custom ip address and port. 
+If a custom ip address and port is needed, there is a `wesad.conf` (generated with defaults on first run) located in the above directory which allows the user to specify these values. 
 - It is highly recommended to keep the ip address as the default `0.0.0.0` unless you know what you're doing. 
 - The port can be freely changed to your liking
-  - Please note the default client api entrypoint `wesad::client::Client::new()` will use the default port of `22000`. If you wish to specify a custom port, you must build the client from the full endpoint url, e.g. `http://your-ip:10101` using the `new_from_endpoint(url)` function instead. See [this example](#client-api-example).
+  - Please note the default client api entrypoint `wesad::client::Client::new()` will use the default port of `22000`. If you wish to specify a custom port, you must build the client by specifying the full endpoint url, e.g. `http://your-ip:10101` in the `new_from_endpoint(url)` function instead. See [this example](#client-api-example).
 
 ## webhooks.d
 Each pair of `.conf` and `.json` files must have the same name to be associated 
 with one another, and both **must** be present for the program to read them e.g. `astley.conf` and `astley.json`.
 
-Each `.conf` file contains header information about the webhook: 
+Each `.conf` file contains metadata about its webhook: 
 ```json
 {
     "url" : "https://discord.com/api/webhooks/yourwebhook",
@@ -96,15 +93,15 @@ Each `.conf` file contains header information about the webhook:
                             //   leave null or delete this line.
 }
 ```
-The `.json` file contains the full raw HTTP body for the webhook request. This should also include all placeholder values that will be replaced by live data, called `tags`. Tags are indicated using double dollar-signs around the key, for example `Never gonna $$give$$`.
+The `.json` file contains the full raw HTTP body for its webhook request. This should also include all placeholder values that will be replaced by live data, called `tags`, which are a core concept of this service. Tags are indicated using double dollar-signs around the key, e.g. `Never gonna $$give$$`.
 
-- For an example HTTP body for **Discord**, check [astley.json](/example_dirs/etc/webhooks.d/astley.json)
+New `tags` are initialized with the text value of `"*empty*"`.
 
 ## Sending new data via HTTP
 By default, WeSAD will create a webserver on `localhost:22000`.
 - You can check the service is active and listening by doing an HTTP `GET` to the endpoint `localhost:22000/health`
 - Updated tag data for status webhooks is sent as a POST to the `/status` api endpoint. 
-  - The only required header is `Content-type : application/json`. 
+  - The only required header is `"Content-Type" : "application/json"`. 
   - The body of the request should be structured as follows:
 ```json
 {
@@ -134,7 +131,7 @@ Alternatively, data can be sent to the service via the public client API in `wes
 # Example
 ## Astley example
 In the [`example_dirs/etc/webhooks.d`](/example_dirs/etc/webhooks.d/) directory of this repo you can find the example config pairing [`astley.conf`](/example_dirs/etc/webhooks.d/astley.conf) and [`astley.json`](/example_dirs/etc/webhooks.d/astley.json). If you make sure to replace the `url` in `astley.conf` with a valid discord webhook, you can test things out right away: 
-- Compile (or download) the binary and run it once with the `-i` or `--init` command line argument.
+- Compile (no downloads yet, sorry) the binary and run it once with the `-i` or `--init` command line argument.
   - This will run the service in "initialization" mode which will create the required folders on your computer then exit.
 - Locate your OS's `wesad/etc/webhooks.d` config folder (see [here](#config) for that location) and move the `astley.conf` and `astley.json` files into it.
 - Run the program again, this time with no additional command line arguments.
@@ -143,8 +140,9 @@ In the [`example_dirs/etc/webhooks.d`](/example_dirs/etc/webhooks.d/) directory 
 
 ![astley-new-message](docs/examples/astley/fresh.png)
 
-- Download or copy the [`example-update.json`](/example_dirs/example-update.json) file from `example_dirs`. This is a fully formatted tag payload designed to work with this example.
-- Open or otherwise navigate your terminal to the location of the `example-update.json` you just downloaded
+- Download or copy the [`example-update.json`](/example_dirs/example-update.json) file from `example_dirs`. 
+  - This is a fully formatted status payload designed to work with this example.
+- Open or otherwise navigate your terminal to the location of `example-update.json` 
 - Run the (Linux) command `curl -i --header "Content-Type: application/json" --data "$(cat example-update.json)" "localhost:22000/status"` to send a POST with the `example-update.json` payload to the service.
 
 In your WeSAD terminal, you should see an INFO log acknowledgement of the POST request.
