@@ -1,7 +1,8 @@
 use super::*;
+use crate::io::{DEFAULT_ADDR, DEFAULT_PORT};
 use crate::json::object;
 use crate::axum::http::StatusCode;
-use crate::thiserror::Error;
+
 
 pub use crate::service::listener::TagValue;
 
@@ -9,35 +10,37 @@ pub struct Client {
     endpoint : String,
 }
 
-#[derive(Debug,Error)]
-pub enum ClientErr {
-    #[error("HTTP error ")]
-    NotFound(#[from] reqwest::Error)
-}
-
 
 impl Client {
 
-    pub fn new() -> Result<Self, ClientErr> 
+    pub fn new() -> Result<Self, errors::Error> 
     {
         let endpoint = format!("http://{}:{}", io::DEFAULT_ADDR, io::DEFAULT_PORT);
 
-        Client::validate_wesad_listener(&endpoint)?;
-
-        Ok(Client { 
-            endpoint,
-        })
+        match Client::validate_wesad_listener(&endpoint) {
+            Ok(_) => Ok(Client { 
+                endpoint,
+            }),
+            Err(_) => {Err(
+                errors::Error::ClientErr(format!("Could not validate WeSAD listener at http://{}:{}. Please ensure
+                the service is running and the port is reachable.", DEFAULT_ADDR, DEFAULT_PORT)))
+            }
+        }
     }
 
-    pub fn new_from_url<T>(endpoint: &T) -> Result<Self, ClientErr>
+    pub fn new_from_url<T>(endpoint: &T) -> Result<Self, errors::Error>
     where T: Display + Clone
     {
 
-        Client::validate_wesad_listener(&endpoint)?;
-
-        Ok(Client { 
-            endpoint: endpoint.to_string().clone(),
-        })
+        match Client::validate_wesad_listener(&endpoint) {
+            Ok(_) => Ok(Client { 
+                endpoint : endpoint.clone().to_string(),
+            }),
+            Err(_) => {Err(
+                errors::Error::ClientErr(format!("Could not validate WeSAD listener at http://{}:{}. Please ensure
+                the service is running and the port is reachable.", DEFAULT_ADDR, DEFAULT_PORT)))
+            }
+        }
     }
 
     pub fn send_tags<T>(&self, webhook: T, tags: Vec<service::listener::TagValue>) 
@@ -84,7 +87,7 @@ impl Client {
     }
 
 
-    fn validate_wesad_listener<T>(addr: &T) -> Result<StatusCode, ClientErr>
+    fn validate_wesad_listener<T>(addr: &T) -> Result<StatusCode, errors::Error>
     where T: Display + Clone
     {   
         let mut url = addr.to_string().clone();

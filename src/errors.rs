@@ -14,15 +14,6 @@ pub enum Error {
 
     #[error("Json error: {0}")]
     JsonErr(#[from] json::Error),
-    
-    #[error("Database unreadable")]
-    BbdbUnreadable(),
-
-    #[error("Invalid argument: {0}")]
-    ArgumentErr(String),
-
-    #[error("Config Error: {0}")]
-    ConfigErr(String),
 
     #[error("Reqwest Error: {0}")]
     ReqwErr(#[from] reqwest::Error),
@@ -32,4 +23,10 @@ pub enum Error {
 
     #[error("Daemonize Error: {0}")]
     DaemErr(#[from] daemonize::Error),
+
+    #[error("Config Error: {0}")]
+    ConfigErr(String),
+
+    #[error("Client Error: {0}")]
+    ClientErr(String),
 }

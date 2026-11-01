@@ -23,9 +23,9 @@ Note - `alert` types are not yet implemented.
 # Crate
 The crate is split into two main public APIs:
 1. The core daemonizable service
-2. A minimal public API for sending updates to the running daemon. 
+2. A minimal client API.
 
-This "sender" API was included to further minimize the code required for sending updates to the daemon from external scripts. [Example]
+The client API was included to further minimize the code required for sending updates to the daemon from external scripts. [Example]
 
 However, the daemon service listens for updates via HTTP, so it is intended that you can still send status updates in situations where importing this crate is undesired or not feasible, *e.g.* some embedded devices, using other languages, etc...
 
