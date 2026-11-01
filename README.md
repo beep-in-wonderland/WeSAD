@@ -10,11 +10,11 @@
   - [Client API](#client-api)
 
 # About
-**WeSAD (WEbhook Status and Alerting Daemon)**, is a small tool built in Rust designed as a centralized service for sending webhook updates and alerts from various disconnected sources.
+**WeSAD (WEbhook Status and Alerting Daemon)**, is a small tool built in Rust designed as a centralized self-hosted service for managing webhook messages from various data sources.
 
-I made it for my home server to solve a simple problem: Building a highly modifiable discord dashboard for my various, unrelated services running on my server. Of course, there are other solutions capable of doing this, but I wanted to do it myself :)
+I made it for my home server to solve a problem: I wanted a highly modifiable discord dashboard for my various, unrelated services running on my server. Of course, there are other solutions capable of doing this, but I wanted to do it myself :)
 
-WeSAD solves this problem by acting as a single recipient for any and all status updates and alerts from my various devices and scripts. It stores all the data it receives, and then periodically refreshes webhook dashboards based on the current fresh data.
+WeSAD solves this problem by acting as a single recipient for any and all status updates and alerts from my devices, scripts, and services. It stores all the data it receives, and then periodically refreshes webhook dashboards based on the current fresh data.
 
 WeSAD allows for an indefinite number of concurrent webhooks all with independent data, update intervals, `status` messages which are edited in-place such as for dashboards, or `alert` messages which fire off when requested.
 
@@ -78,7 +78,11 @@ In the `example_dirs` directory of this repo you can find example configs `astle
 - Move the `astley.conf` and `astley.json` files into your OS's `webhooks.d` folder (see [here](#os--webhook-support) for that location)
 - Run the program again, this time with no additional command line arguments.
   - This will open attached to your terminal for easy log viewing and shutdown. 
-- Download the `example-update.json` file from `example_dirs`. This is a fully formatted tag payload designed to work with the default `astley` examples.
+  - At this time, you should also receive the blank webhook message in your server:
+
+![astley-new-message](docs/examples/astley/fresh.png)
+
+- Download the `example-update.json` file from `example_dirs`. This is a fully formatted tag payload designed to work with this example.
 - Open or otherwise navigate your terminal to the location of the `example-update.json` you just downloaded
 - Run the (Linux) command `curl -i --header "Content-Type: application/json" --data "$(cat example-update.json)" "localhost:22000/status"`
 
@@ -86,22 +90,29 @@ In your WeSAD terminal, you should see an INFO log acknowledgement of the POST r
 
 The `astley.conf` example is set to update every `7` seconds, so wait, and soon enough you should see the *empty* tags replaced with the data from `example-update.json`!
 
+![astley example](docs/examples/astley/updated.png)
+
 ## Client API
-Sending a tag update using the provided client api is simple:
+Using the same setup as the above Astley example, you can also send the updated data using the available API:
 ```rust
-use wesad::{
+use wesad::client::{
     self,
     TagValue
-}
+};
 
-let client = wesad::Client::new().unwrap();
+let client = client::Client::new().unwrap();
 // or, for a specific ip:port, use
 // let client = wesad::Client::new_from_ip("192.168.0.123:12345");
 
-let my_tag_data = Vec::new();
+let mut my_tag_data = Vec::new();
+
+// TagValue::new uses the arguments (tag, value)
 my_tag_data.push(TagValue::new("give", "give you up"));
 my_tag_data.push(TagValue::new("let", "let you down"));
 my_tag_data.push(TagValue::new("run", "run around and desert you"));
 
-client.send_tags("astley", my_tag_data).unwrap();
+// Here, the webhook receiving the tags is `astley`
+client.send_tags("astley", my_tag_data);
 ```
+
+![astley-client-updated](docs/examples/astley-client/updated.png)
