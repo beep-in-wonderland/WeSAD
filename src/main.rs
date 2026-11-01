@@ -20,6 +20,7 @@ use wesad::{
 pub struct CLIArgs {
     log_level : Level,
     daemonize: bool,
+    init_only: bool,
 }
 
 impl Default for CLIArgs {
@@ -27,6 +28,7 @@ impl Default for CLIArgs {
         Self {
             log_level : Level::Info,
             daemonize : false,
+            init_only: false,
         }
     }
 }
@@ -55,8 +57,14 @@ fn main() -> () {
         is_dev_build,
         &cli_args.log_level,
     )
-    .expect("An unexpected error occurred initializing the daemon.");
+    .expect("An unexpected error occurred initializing the service.");
 
+    // Exit early if we are only initializing the directories and files
+    if cli_args.init_only {
+        return
+    }
+
+    // Otherwise, enter and run the service.
     service.run().expect("Somethin real bad happened");
 
 }
@@ -103,9 +111,17 @@ fn parse_cli_args() -> Result<CLIArgs, Box<dyn error::Error>> {
                         .expect("Error - Invalid Log Level. Please select from ERROR, WARN, INFO, DEBUG");
                 }
             },
+            
             "-d" | "--detach" => {
                 cli_args.daemonize = true
+            },
+            
+            "-i" | "--init" => 
+            {
+                cli_args.init_only = true
             }
+            // TODO, implement a -i / --init option to allow building the project directories
+            // and then exiting
             _ => ()
         };
     }

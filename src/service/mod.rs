@@ -51,10 +51,10 @@ pub struct Service {
 impl Service {
 
     /// Initialization function of the daemon only requires that the paths be specified for this runtime.
-    pub fn new(is_dev_build: bool, log_level: &logging::Level) -> Result<Self, errors::Error> {      
+    pub fn new(is_dev_build: bool, log_level: &logging::Level) -> Result<Self, errors::Error> {
+
         // TODO Rewrite this as a builder eventually with .with_dev_build() as a buildparam
         let paths = io::ProgramPaths::build_paths(is_dev_build);
-        dbg!(paths.get_log());
         logging::init_logger(log_level, paths.get_log());
 
         // Initialize persistent local db.
@@ -70,6 +70,7 @@ impl Service {
                 runtime_config : config,
             })
     }
+
 
     pub fn run(&mut self) -> Result<(), errors::Error> {
 
@@ -131,6 +132,7 @@ impl Service {
             }
 
             // Put the loop to sleep so we only check for thread failure every second
+            debug!("Putting main thread to sleep for 1s...");
             thread::sleep(std::time::Duration::from_secs(1));
         }
     }
