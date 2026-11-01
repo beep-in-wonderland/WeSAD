@@ -106,6 +106,8 @@ fn parse_cli_args() -> Result<CLIArgs, Box<dyn error::Error>> {
             "-d" | "--detach" => {
                 cli_args.daemonize = true
             }
+            // TODO, implement a -i / --init option to allow building the project directories
+            // and then exiting
             _ => ()
         };
     }

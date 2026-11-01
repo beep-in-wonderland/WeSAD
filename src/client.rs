@@ -43,7 +43,6 @@ impl Client {
     pub fn send_placeholders<T>(&self, webhook: T, placeholders: Vec<service::listener::PlaceholderValue>) 
     where T: Display + Clone
     {
-
         let mut json = Client::build_json_status_template(webhook.to_string());
         json["content"] = json::array![];
 
@@ -71,7 +70,6 @@ impl Client {
             .send().unwrap().text().unwrap();
 
         println!("{}", resp);
-
     }
 
 
