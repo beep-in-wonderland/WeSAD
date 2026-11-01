@@ -78,7 +78,11 @@ In the `example_dirs` directory of this repo you can find example configs `astle
 - Move the `astley.conf` and `astley.json` files into your OS's `webhooks.d` folder (see [here](#os--webhook-support) for that location)
 - Run the program again, this time with no additional command line arguments.
   - This will open attached to your terminal for easy log viewing and shutdown. 
-- Download the `example-update.json` file from `example_dirs`. This is a fully formatted tag payload designed to work with the default `astley` examples.
+  - At this time, you should also receive the blank webhook message in your server:
+
+![astley-new-message](docs/examples/astley/fresh.png)
+
+- Download the `example-update.json` file from `example_dirs`. This is a fully formatted tag payload designed to work with this example.
 - Open or otherwise navigate your terminal to the location of the `example-update.json` you just downloaded
 - Run the (Linux) command `curl -i --header "Content-Type: application/json" --data "$(cat example-update.json)" "localhost:22000/status"`
 
@@ -86,22 +90,29 @@ In your WeSAD terminal, you should see an INFO log acknowledgement of the POST r
 
 The `astley.conf` example is set to update every `7` seconds, so wait, and soon enough you should see the *empty* tags replaced with the data from `example-update.json`!
 
+![astley example](docs/examples/astley/updated.png)
+
 ## Client API
-Sending a tag update using the provided client api is simple:
+Using the same setup as the above Astley example, you can also send the updated data using the available API:
 ```rust
-use wesad::{
+use wesad::client::{
     self,
     TagValue
-}
+};
 
-let client = wesad::Client::new().unwrap();
+let client = client::Client::new().unwrap();
 // or, for a specific ip:port, use
 // let client = wesad::Client::new_from_ip("192.168.0.123:12345");
 
-let my_tag_data = Vec::new();
+let mut my_tag_data = Vec::new();
+
+// TagValue::new uses the arguments (tag, value)
 my_tag_data.push(TagValue::new("give", "give you up"));
 my_tag_data.push(TagValue::new("let", "let you down"));
 my_tag_data.push(TagValue::new("run", "run around and desert you"));
 
-client.send_tags("astley", my_tag_data).unwrap();
+// Here, the webhook receiving the tags is `astley`
+client.send_tags("astley", my_tag_data);
 ```
+
+![astley-client-updated](docs/examples/astley-client/updated.png)

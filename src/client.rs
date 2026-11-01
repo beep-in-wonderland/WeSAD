@@ -20,7 +20,7 @@ impl Client {
 
     pub fn new() -> Result<Self, ClientErr> 
     {
-        let endpoint = format!("{}:{}", io::DEFAULT_ADDR, io::DEFAULT_PORT);
+        let endpoint = format!("http://{}:{}", io::DEFAULT_ADDR, io::DEFAULT_PORT);
 
         Client::validate_wesad_listener(&endpoint)?;
 
@@ -29,7 +29,7 @@ impl Client {
         })
     }
 
-    pub fn new_from_ip<T>(endpoint: &T) -> Result<Self, ClientErr>
+    pub fn new_from_url<T>(endpoint: &T) -> Result<Self, ClientErr>
     where T: Display + Clone
     {
 
