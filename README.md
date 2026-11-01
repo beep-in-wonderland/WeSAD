@@ -75,11 +75,10 @@ The user provides configuration in the form of name-paired `.conf` and `.json` f
 
 If these locations do not appear, run the program once first with the `-i` or `--init` shout (Not yet implemented).
 
-Lastly, if needed, there is a `wesad.conf` located in the above directory which
-allows the user to specify a custom ip address and port. 
+Lastly, if needed, there is a `wesad.conf` (generated with defaults on first run) located in the above directory which allows the user to specify a custom ip address and port. 
 - It is highly recommended to keep the ip address as the default `0.0.0.0` unless you know what you're doing. 
 - The port can be freely changed to your liking
-  - Please note the default client api entrypoint `wesad::client::Client::new()` will use the default port of `22000`. If you wish to specify a custom port, you must build the client from the full endpoint url, e.g. `localhost:10101` using the `new_from_endpoint(url)` function instead. See [this example](#client-api-example).
+  - Please note the default client api entrypoint `wesad::client::Client::new()` will use the default port of `22000`. If you wish to specify a custom port, you must build the client from the full endpoint url, e.g. `http://your-ip:10101` using the `new_from_endpoint(url)` function instead. See [this example](#client-api-example).
 
 ## webhooks.d
 Each pair of `.conf` and `.json` files must have the same name to be associated 
@@ -134,21 +133,23 @@ Alternatively, data can be sent to the service via the public client API in `wes
 
 # Example
 ## Astley example
-In the [`example_dirs`](/example_dirs/) directory of this repo you can find example configs [`astley.conf`](/example_dirs/etc/webhooks.d/astley.conf) and [`astley.json`](/example_dirs/etc/webhooks.d/astley.json). If you make sure to replace the `url` in `astley.conf` with a valid discord webhook, you can test things out right away: 
+In the [`example_dirs/etc/webhooks.d`](/example_dirs/etc/webhooks.d/) directory of this repo you can find the example config pairing [`astley.conf`](/example_dirs/etc/webhooks.d/astley.conf) and [`astley.json`](/example_dirs/etc/webhooks.d/astley.json). If you make sure to replace the `url` in `astley.conf` with a valid discord webhook, you can test things out right away: 
 - Compile (or download) the binary and run it once with the `-i` or `--init` command line argument.
   - This will run the service in "initialization" mode which will create the required folders on your computer then exit.
-- Locate your OS's `wesad/etc/webhooks.d` config folder (see [here](#os--webhook-support) for that location) and move the `astley.conf` and `astley.json` files into it.
+- Locate your OS's `wesad/etc/webhooks.d` config folder (see [here](#config) for that location) and move the `astley.conf` and `astley.json` files into it.
 - Run the program again, this time with no additional command line arguments.
-  - This will open attached to your terminal for easy log viewing and shutdown. 
-  - At this time, you should also receive the blank webhook message in your server:
+  - This will open attached to your terminal for easy log viewing and shutdown.
+  - At this time, you should also receive the blank webhook message in your webhook channel:
 
 ![astley-new-message](docs/examples/astley/fresh.png)
 
-- Download the [`example-update.json`](/example_dirs/example-update.json) file from `example_dirs`. This is a fully formatted tag payload designed to work with this example.
+- Download or copy the [`example-update.json`](/example_dirs/example-update.json) file from `example_dirs`. This is a fully formatted tag payload designed to work with this example.
 - Open or otherwise navigate your terminal to the location of the `example-update.json` you just downloaded
 - Run the (Linux) command `curl -i --header "Content-Type: application/json" --data "$(cat example-update.json)" "localhost:22000/status"` to send a POST with the `example-update.json` payload to the service.
 
 In your WeSAD terminal, you should see an INFO log acknowledgement of the POST request.
+
+![POST-received](/docs/examples/astley/received.png)
 
 The `astley.conf` example is set to update every `7` seconds, so wait, and soon enough you should see the *empty* tags replaced with the data from `example-update.json`!
 
