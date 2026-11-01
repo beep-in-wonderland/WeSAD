@@ -81,11 +81,10 @@ fn update_loop(guard: Arc<Mutex<Session>>) -> Result<(), errors::Error> {
                     next_millis = now_millis + MIN_WAIT_TIME;
                 }
             };
-
             // Check if the next execution of the webhook is the soonest
             if next_millis < sleep_target_timestamp {
                 sleep_target_timestamp = next_millis;
-                sleep_duration_millis = (sleep_target_timestamp - now_millis) as u64;
+                sleep_duration_millis = (&sleep_target_timestamp - now_millis).clamp(MIN_WAIT_TIME, i64::MAX/2-1) as u64;
                 debug!("New shortest sleep target for update loop: {}", &sleep_duration_millis / 1000)
             }
         }
@@ -131,7 +130,7 @@ fn process_webhook_update(
 
     } else {
         // If no update occurred, use the last execution from the webhook status
-        next_millis = MIN_WAIT_TIME + webhook.last;
+        next_millis = webhook.period + webhook.last;
     }
 
     Ok(next_millis)

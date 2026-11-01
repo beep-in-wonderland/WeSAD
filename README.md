@@ -63,9 +63,9 @@ By default, WeSAD will create a webserver on `localhost:22000`, and you can then
 
 
 ## Architecture
-The program uses an [sqlite]() database to store all persistent webhook and placeholder data. On startup, it will build paths to the OS's project directories using [ProjectDirs](). 
+The program uses an [sqlite](https://docs.rs/sqlite/latest/sqlite/) database to store all persistent webhook and placeholder data. On startup, it will build paths to the OS's project directories using the [directories](https://docs.rs/directories/latest/directories/index.html) crate. 
 
-A long-running `listener` thread uses [tokio]() to build an asynchronous TCP webserver and listen for updates which get pushed into the [sqlite]() database. Simultaneously, the long-lived `updater` thread also uses [tokio]() for sending HTTP requests to the webhook target endpoints based on the current values in the database.
+A long-running `listener` thread uses [tokio](https://docs.rs/tokio/latest/tokio/) to build an asynchronous TCP webserver and listen for updates which get pushed into the [sqlite](https://docs.rs/sqlite/latest/sqlite/) database. Simultaneously, the long-lived `updater` thread also uses [tokio](https://docs.rs/tokio/latest/tokio/) for sending HTTP requests to the webhook target endpoints based on the current values in the database.
 
 Each webhook configuration file contains its own information about update type, and interval. Within the `updater` thread, the program dynamically sleeps after every update cycle until the next udpate is due, so as to reduce impact on compute resources. The exact timing of the `updater` is likely quite unreliable, and your prescribed interval should be considered more an estimate than an exact value.
 

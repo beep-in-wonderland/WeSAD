@@ -131,6 +131,7 @@ impl Service {
             }
 
             // Put the loop to sleep so we only check for thread failure every second
+            debug!("Putting main thread to sleep for 1s...");
             thread::sleep(std::time::Duration::from_secs(1));
         }
     }
