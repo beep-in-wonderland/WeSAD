@@ -14,20 +14,25 @@
 - [Architecture](#architecture)
   
 # About
-**WeSAD (WEbhook Status and Alerting Daemon)**, is a small tool built in Rust designed as a centralized self-hosted service for managing webhook messages from various data sources.
+**WeSAD (WEbhook Status and Alerting Daemon)**, is a small program built in Rust as a centralized self-hosted service for managing webhook messages from various data sources.
 
 I made it for my home server to solve a problem: I wanted a highly modifiable discord dashboard for my various, unrelated services running on my server. Of course, there are other solutions capable of doing this, but I wanted to do it myself :)
 
-WeSAD solves this problem by acting as a single recipient for any and all status updates and alerts from my devices, scripts, and services. It stores all the data it receives, and then periodically refreshes webhook dashboards based on the current fresh data.
+WeSAD solves this problem by acting as a single recipient for any and all status updates and alerts from my devices, scripts, and services. It stores all the data it receives, and then periodically refreshes appropriate webhooks with the current fresh data.
 
-WeSAD allows for an indefinite number of concurrent webhooks all with independent data, update intervals, `status` messages which are edited in-place such as for dashboards, or `alert` messages which fire off when requested.
+WeSAD allows for an indefinite number of concurrent webhooks, all with:
+- Independent data
+- Update intervals
 
-Note - `alert` types are not yet implemented.
+And has two primary webhook "types", mostly designed for **Discord**:
+- `status` messages,which are edited in-place such as for dashboards, and
+- `alert` messages, which fire off new messages when requested.
+  - Alerts are not yet implemented.
 
 # Crate
-The crate is split into two main public APIs:
-1. The core daemonizable service
-2. A minimal client API.
+This project contains both:
+1. The core daemonizable service, ran as a compiled binary.
+2. A minimal client API, accessed as a library within the crate.
 
 The client API was included to further minimize the code required for sending updates to the daemon from external scripts (see this [example](#client-api-example).
 
@@ -37,9 +42,18 @@ The core service listens for updates via HTTP, so it is intended that you can st
 
 WeSAD is currently designed for, and functions on, my particular Linux distribution (x86 CachyOS). Some small steps have been taken towards eventual cross-compatibility, but have not been tested. If this is something you'd like to see, please let me know!
 
-The service is designed primarily with **Discord**'s webhooks in mind, however the user-configured `.json` files actually replace the entire HTTP request body. So, in cases where you know exactly what your body should contain, you can technically use this service to send scheduled HTTP requests to various endpoints. That being said, currently the only supported header is `Content-Type: application/json` and is hard-coded into the service. This might change in the future.
+The service is designed primarily with **Discord**'s webhooks in mind, however the user-configured `.json` files actually replace the entire HTTP request body. 
+
+This means in cases where you know exactly what your HTTP body should contain, you can technically use this service to send scheduled HTTP requests to various endpoints, not just webhooks, and use the tag system to replace any String data within that body. This is not *exactly* intended, but is a cute sideffect so far.
+
+That being said, currently the only supported header is `Content-Type: application/json` and is hard-coded into the service. This might change in the future.
 
 ## Usage
+The usage pattern for WeSAD is to:
+1. Configure your webhooks in the `webhooks.d` directory.
+2. Run the service, ideally as a constant background process.
+3. Use either HTTP POST or the client API to send updates to the service.
+
 ### Config
 The user provides configuration in the form of name-paired `.conf` and `.json` files in the project's `webhooks.d` directory, located in:
 | OS      | Config Path                                                  |
@@ -50,8 +64,15 @@ The user provides configuration in the form of name-paired `.conf` and `.json` f
 
 If these locations do not appear, run the program once first with the `-i` or `--init` shout (Not yet implemented).
 
+Lastly, if needed, there is a `wesad.conf` located in the above directory which
+allows the user to specify a custom ip address and port. 
+- It is highly recommended to keep the ip address as the default `0.0.0.0` unless you know what you're doing. 
+- The port can be freely changed to your liking
+  - Please note the default client api entrypoint `wesad::client::Client::new()` will use the default port of `22000`. If you wish to specify a custom port, you must build the client from the full endpoint url, e.g. `localhost:10101` using the `new_from_endpoint(url)` function instead. See [this example](#client-api-example).
+
 ### webhooks.d
-Each pair of `.conf` and `.json` files must have the same name to be associated with one another, and both **must** be present for the program to read them e.g. `astley.conf` and `astley.json`.
+Each pair of `.conf` and `.json` files must have the same name to be associated 
+with one another, and both **must** be present for the program to read them e.g. `astley.conf` and `astley.json`.
 
 Each `.conf` file contains header information about the webhook: 
 ```json
