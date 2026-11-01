@@ -4,8 +4,10 @@ use crate::logging::*;
 use crate::json::{
     self,
     JsonValue,
+    object
 };
 use crate::File;
+use crate::Write;
 
 use crate::fancy_regex::Regex;
 use crate::errors::Error::*;
@@ -172,9 +174,17 @@ impl ProgramPaths {
         let log = dirs.state_dir().unwrap().to_path_buf();
         let persist = dirs.data_dir().to_path_buf();
 
-        std::fs::create_dir_all(etc.join("webhooks.d"))?;
+        std::fs::create_dir_all(&etc.join("webhooks.d"))?;
         std::fs::create_dir_all(&log)?;
         std::fs::create_dir_all(&persist)?;
+
+        match std::fs::File::create_new(&etc.join("wesad.conf")) {
+            Ok(mut file) => {
+                info!("Generated new wesad.conf in {}", &etc.clone().into_string().unwrap());
+                let _ = file.write(config_defaults_as_str().as_bytes());
+            },
+            Err(_) => info!("Found wesad.conf at {}", &etc.clone().into_string().unwrap())
+        }
 
         Ok(Self { 
             log, 
@@ -268,4 +278,14 @@ fn validate_config_lines(json_data: &JsonValue, name: &String) -> Result<(), err
     }
 
     Ok(())
+}
+
+
+fn config_defaults_as_str() -> String {
+    let config = object!{
+        listener_addr : DEFAULT_ADDR,
+        listener_port : DEFAULT_PORT,
+    };
+
+    config.pretty(4)
 }

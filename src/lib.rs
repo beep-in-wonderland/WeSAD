@@ -8,7 +8,7 @@ use std::sync::{Arc,Mutex};
 use std::thread::{self, JoinHandle};
 use std::collections::HashMap;
 use std::ops::Not;
-use std::io::Read;
+use std::io::{Read, Write};
 
 // all crates for the project
 use sqlite; // managing persistent data
