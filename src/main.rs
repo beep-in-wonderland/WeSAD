@@ -16,11 +16,27 @@ use wesad::{
 };
 
 
+const HELP_TEXT: &str = r#"WeSAD - WEbhook Status and Notification Daemon
+Starts a webserver which listens for data tag updates from external programs via
+HTTP request or this crate's client API. Please visit the github page for more
+information (https://github.com/beep-in-wonderland/WeSAD).
+
+Options:
+    -d, --daemon            - Run the process detached from this terminal,
+                                i.e. as a user-space daemon.
+    -i, --init              - Run the service initialization only, to make
+                                the required project directories.
+    -l, --log-level [level] - The logging level for terminal output and 
+                                the generated log file.
+        Options: error, warn, info, debug
+"#;
+
 // Public struct to hold all args passed during CLI initialization of the service.
 pub struct CLIArgs {
     log_level : Level,
     daemonize: bool,
     init_only: bool,
+    help: bool,
 }
 
 impl Default for CLIArgs {
@@ -29,6 +45,7 @@ impl Default for CLIArgs {
             log_level : Level::Info,
             daemonize : false,
             init_only: false,
+            help: false,
         }
     }
 }
@@ -39,6 +56,13 @@ fn main() -> () {
     // Allow the CLI args to be mutable in case these require adjustment during runtime 
     // via user input.
     let cli_args = parse_cli_args().unwrap(); 
+
+    // If the help option was listed, ignore the rest of the options.
+    // Print the help text and exit early.
+    if cli_args.help {
+        print_help_text();
+        return
+    }
 
     // Check if the current binary is running in a dev environment
     let is_dev_build: bool = check_dev_build()
@@ -112,16 +136,17 @@ fn parse_cli_args() -> Result<CLIArgs, Box<dyn error::Error>> {
                 }
             },
             
-            "-d" | "--detach" => {
+            "-d" | "--daemon" => {
                 cli_args.daemonize = true
             },
             
-            "-i" | "--init" => 
-            {
+            "-i" | "--init" => {
                 cli_args.init_only = true
             }
-            // TODO, implement a -i / --init option to allow building the project directories
-            // and then exiting
+
+            "-h" | "--help" => {
+                cli_args.help = true
+            }
             _ => ()
         };
     }
@@ -151,3 +176,8 @@ fn daemonize() -> Result<String, wesad::errors::Error> {
             Err(e) => Err(wesad::errors::Error::DaemErr(e))
         }
     }
+
+
+fn print_help_text() -> () {
+    println!("{HELP_TEXT}");
+}
