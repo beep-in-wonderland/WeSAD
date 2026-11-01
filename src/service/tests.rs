@@ -1,12 +1,12 @@
-use crate::{HashMap, service::updater::do_placeholder_replacements};
+use crate::{HashMap, service::updater::do_tag_replacements};
 
 #[test]
-pub fn placeholder_replacement() {
+pub fn tag_replacement() {
 
     let map = build_test_map();
     let mut content = "the $$dog$$ goes meow\nthe $$cat$$ goes moo".to_string();
 
-    do_placeholder_replacements(map, &mut content).unwrap();
+    do_tag_replacements(map, &mut content).unwrap();
 
     assert_eq!(
         content,

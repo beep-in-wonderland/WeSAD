@@ -26,7 +26,7 @@ pub const DEFAULT_PORT: &str = "22000";
 /// `name = file`
 /// `ext = .conf`
 pub(super) const REGEX_CONF: &str = "(?<dir>^[(?:\\/|\\\\)0-9a-zA-Z_\\-\\. ]+(?:\\.d)?(?:\\/|\\\\))(?<name>[0-9a-zA-Z_\\-. ]+)(?<ext>\\.conf)$";
-pub(super) const REGEX_PLACEHOLDERS: &str = "(\\$\\$(?<flag>[\\w]+)\\$\\$)";
+pub(super) const REGEX_TAGS: &str = "(\\$\\$(?<flag>[\\w]+)\\$\\$)";
 
 
 pub(super) struct WebhookConfigContents {
@@ -237,21 +237,21 @@ pub(super) fn read_webhook_config(path: &String, name: &String) -> Result<Webhoo
 }
 
 
-pub(super) fn read_webhook_json_placeholders(path: &String, name: &String) -> Result<Vec<String>, errors::Error> {
+pub(super) fn read_webhook_json_tags(path: &String, name: &String) -> Result<Vec<String>, errors::Error> {
 
-    let mut placeholders = Vec::new();
+    let mut tags = Vec::new();
 
     // Open the json template embed file
     let json_str: &String = &open_as_string(path, name, ".json")?;
 
-    let re = Regex::new(REGEX_PLACEHOLDERS)?;
+    let re = Regex::new(REGEX_TAGS)?;
     let matches = re.captures_iter(json_str);
 
     for regmatch in matches {
-        placeholders.push(regmatch.unwrap().get(2).unwrap().as_str().to_string());
+        tags.push(regmatch.unwrap().get(2).unwrap().as_str().to_string());
     }
 
-    Ok(placeholders)
+    Ok(tags)
 }
 
 

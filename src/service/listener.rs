@@ -12,7 +12,7 @@ use crate::serde::Deserialize;
 struct StatusUpdate {
     webhook: String,
     update_type: String,
-    content: Vec<PlaceholderValue>,
+    content: Vec<TagValue>,
 }
 
 impl Display for StatusUpdate {
@@ -22,7 +22,7 @@ impl Display for StatusUpdate {
         let mut values_str: String = String::from("\n");
 
         for pl in &self.content {
-            values_str = values_str + format!("{} : \"{}\"", pl.placeholder, pl.value).as_str();
+            values_str = values_str + format!("{} : \"{}\"", pl.tag, pl.value).as_str();
         }
 
         write!(f, "StatusUpdate:
@@ -38,16 +38,16 @@ impl Display for StatusUpdate {
 
 
 #[derive(Deserialize)]
-pub struct PlaceholderValue {
-    pub placeholder: String,
+pub struct TagValue {
+    pub tag: String,
     pub value: String
 }
 
-impl PlaceholderValue {
-    pub fn new<T>(placeholder: T, value: T) -> Self 
+impl TagValue {
+    pub fn new<T>(tag: T, value: T) -> Self 
     where T: Display + Clone,
     {
-        PlaceholderValue { placeholder: placeholder.to_string().clone(), value: value.to_string().clone() }
+        TagValue { tag: tag.to_string().clone(), value: value.to_string().clone() }
     }
 }
 
@@ -122,15 +122,15 @@ async fn status_handler(
     let session = guard.lock().expect("Mutex poisoned in listener status_handler. Exiting thread.");
 
     for pl in &payload.content {
-        if let Err(e) = database::write::update_webhook_placeholder(
+        if let Err(e) = database::write::update_webhook_tag(
             &session, 
             &payload.webhook, 
-            &pl.placeholder, 
+            &pl.tag, 
             &pl.value,
         ) {
-            warn!("Placeholder {} : \"{}\" failed to update, error {e}", pl.placeholder, pl.value)
+            warn!("Tag {} : \"{}\" failed to update, error {e}", pl.tag, pl.value)
         } else {
-            debug!("Placeholder value updated successfully: {}: \"{}\"", pl.placeholder, pl.value);
+            debug!("Tag value updated successfully: {}: \"{}\"", pl.tag, pl.value);
         }
     };
 

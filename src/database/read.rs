@@ -21,13 +21,13 @@ pub fn webhook_by_name(session: &Session, name: &String) -> Option<usize> {
 }
 
 
-pub fn placeholder_by_name(session: &Session, name: &String, placeholder: &String) -> Option<String> {
+pub fn tag_by_name(session: &Session, name: &String, tag: &String) -> Option<String> {
 
-    let query: &str = "SELECT id FROM placeholders WHERE webhook=? AND placeholder=? LIMIT 1";
+    let query: &str = "SELECT id FROM tags WHERE webhook=? AND tag=? LIMIT 1";
     let mut statement = session.connection.prepare(query).unwrap();
 
     statement.bind((1,name.as_str())).unwrap();
-    statement.bind((2,placeholder.as_str())).unwrap();
+    statement.bind((2,tag.as_str())).unwrap();
     statement.next().unwrap();
     statement.read::<String, usize>(0).map_or(
         None,
@@ -38,10 +38,10 @@ pub fn placeholder_by_name(session: &Session, name: &String, placeholder: &Strin
 }
 
 
-pub fn all_placeholders_by_webhook_name(session: &Session, name: &String) -> Result<HashMap<String, String>, errors::Error> {
+pub fn all_tags_by_webhook_name(session: &Session, name: &String) -> Result<HashMap<String, String>, errors::Error> {
     let mut result:HashMap<String, String> = HashMap::new();
 
-    let query = format!("SELECT {COL_WEBHOOK_PLACEHOLDER}, {COL_WEBHOOK_PLACEHOLDER_VALUE} FROM {TAB_PLACEHOLDERS} WHERE {COL_WEBHOOK_NAME}=?");
+    let query = format!("SELECT {COL_WEBHOOK_TAG}, {COL_WEBHOOK_TAG_VALUE} FROM {TAB_TAGS} WHERE {COL_WEBHOOK_NAME}=?");
     let mut statement = session.connection.prepare(query).unwrap();
 
     statement.bind((1,name.as_str())).unwrap();

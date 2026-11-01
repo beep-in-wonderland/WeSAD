@@ -103,5 +103,5 @@ my_tag_data.push(TagValue::new("give", "give you up"));
 my_tag_data.push(TagValue::new("let", "let you down"));
 my_tag_data.push(TagValue::new("run", "run around and desert you"));
 
-client.send_placeholders("astley", my_tag_data).unwrap();
+client.send_tags("astley", my_tag_data).unwrap();
 ```

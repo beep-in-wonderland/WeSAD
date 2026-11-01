@@ -22,7 +22,7 @@ pub fn run(guard: Arc<Mutex<Session>>) -> Result<service::ThreadHandle<Result<()
 
 
 /// Main loop for the updater thread. This function is responsible for periodically
-/// pulling current placeholders from the database and POSTing to all configured
+/// pulling current tags from the database and POSTing to all configured
 /// webhooks.
 /// Each iteration, the loop will:
 ///     1. Fetch and iterate over all `status` type webhooks
@@ -50,7 +50,7 @@ fn update_loop(guard: Arc<Mutex<Session>>) -> Result<(), errors::Error> {
         sleep_target_timestamp = 1<<60; // A big number to start with
 
         // Debug line for timestamping, remove when finished
-        // let _ = write::update_webhook_placeholder(
+        // let _ = write::update_webhook_tag(
         //     &session, 
         //     &"wesad-status".to_string(), 
         //     &"timestamp".to_string(), 
@@ -139,7 +139,7 @@ fn process_webhook_update(
 
 
 
-/// Updates the webhook in `status` based on the `{status.name}.json` template, using current placeholder values
+/// Updates the webhook in `status` based on the `{status.name}.json` template, using current tag values
 /// from the database. This function will also check for existing message_id from the database, and verify it
 /// with a GET to the webhook before sending the PATCH. If the GET returns unsuccessfully, it will instead send
 /// a new webhook message via POST. 
@@ -176,23 +176,23 @@ async fn http_send_webhook_update(guard: &Arc<Mutex<Session>>, status: &webhook:
 }
 
 
-/// Performs in-place update of the provided `content` String using current placeholder values from the database.
-/// The webhook `name` is used as a key to retrieve all placeholders and their values.
+/// Performs in-place update of the provided `content` String using current tag values from the database.
+/// The webhook `name` is used as a key to retrieve all tags and their values.
 fn update_content_string(guard: &Arc<Mutex<Session>>, content: &mut String, name: &String) -> Result<(), errors::Error> {
     
     let session = guard.lock().expect("Mutex poisoned during updater update_content_string. Exiting thread.");
-    let placeholder_map = database::read::all_placeholders_by_webhook_name(&session, name)?;
+    let tag_map = database::read::all_tags_by_webhook_name(&session, name)?;
     // Release the mutex lock
     drop(session);
 
-    do_placeholder_replacements(placeholder_map, content)?;
+    do_tag_replacements(tag_map, content)?;
 
     Ok(())
 }
 
 /// Performs in-place replacement of values in `content` by searching for instances of `"$$key$$"` and 
 /// replacing it with `"value"` for all `"key" : "value"` pairs in `map`.
-pub(super) fn do_placeholder_replacements(map: HashMap<String, String>, content: &mut String) -> Result<(), errors::Error> {
+pub(super) fn do_tag_replacements(map: HashMap<String, String>, content: &mut String) -> Result<(), errors::Error> {
 
     let mut temp: String = content.clone();
 

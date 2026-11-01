@@ -55,6 +55,8 @@ impl Service {
 
         // TODO Rewrite this as a builder eventually with .with_dev_build() as a buildparam
         let paths = io::ProgramPaths::build_paths(is_dev_build);
+        
+        // Initialize the logging system
         logging::init_logger(log_level, paths.get_log());
 
         // Initialize persistent local db.
@@ -170,7 +172,7 @@ impl Service {
         let mut name: String;
 
         let mut webhook_config: io::WebhookConfigContents;
-        let mut webhook_placeholders: Vec<String>;
+        let mut webhook_tags: Vec<String>;
 
 
         for webhook in webhooks {
@@ -198,10 +200,10 @@ impl Service {
                     }
                 }
 
-                match io::read_webhook_json_placeholders(&path, &name) {
-                    Ok(placeholders) => webhook_placeholders = placeholders,
+                match io::read_webhook_json_tags(&path, &name) {
+                    Ok(tags) => webhook_tags = tags,
                     Err(e) => {
-                        error!("Failed to parse webhook placeholders from {}/{}.json. Skipping with error code {e}", &path, &name);
+                        error!("Failed to parse webhook tags from {}/{}.json. Skipping with error code {e}", &path, &name);
                         continue
                     }
                 }
@@ -224,7 +226,7 @@ impl Service {
                 let session = self.session.lock().expect("poisoned");
 
                 database::write::init_webhook_parent(&session, &status)?;
-                database::write::init_webhook_placeholders(&session, &webhook_config.name, &webhook_placeholders)?;
+                database::write::init_webhook_tags(&session, &webhook_config.name, &webhook_tags)?;
 
             }
 

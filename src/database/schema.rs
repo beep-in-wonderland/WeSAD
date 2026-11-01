@@ -18,7 +18,7 @@ pub(super) fn init_db_from_existing(db_path: &PathBuf) -> Result<Connection, err
         validate_schema_from_connection(&connection)?;
         // Set all records as orphaned until they can be corrected by the config pass
         write::set_all_orphaned(&connection, TAB_WEBHOOKS)?;
-        write::set_all_orphaned(&connection, TAB_PLACEHOLDERS)?;
+        write::set_all_orphaned(&connection, TAB_TAGS)?;
 
         Ok(connection)
 }
@@ -30,7 +30,7 @@ pub(super) fn init_db_from_fresh(db_path: &PathBuf) -> Result<Connection, errors
     let connection = sqlite::Connection::open(db_path).unwrap();
 
     create_webhook_parent_table(&connection)?;
-    create_placeholder_table(&connection)?;
+    create_tag_table(&connection)?;
 
     Ok(connection)
 }
@@ -58,13 +58,13 @@ fn create_webhook_parent_table(connection: &Connection) -> Result<(), errors::Er
 }
 
 
-fn create_placeholder_table(connection: &Connection) -> Result<(), errors::Error>{
-    debug!("Creating webhook placeholder table");
-    let query = format!("CREATE TABLE IF NOT EXISTS {TAB_PLACEHOLDERS} (
+fn create_tag_table(connection: &Connection) -> Result<(), errors::Error>{
+    debug!("Creating webhook tag table");
+    let query = format!("CREATE TABLE IF NOT EXISTS {TAB_TAGS} (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             {COL_WEBHOOK_NAME} VARCHAR(20),
-                            {COL_WEBHOOK_PLACEHOLDER} VARCHAR(40),
-                            {COL_WEBHOOK_PLACEHOLDER_VALUE} VARCHAR(10),
+                            {COL_WEBHOOK_TAG} VARCHAR(40),
+                            {COL_WEBHOOK_TAG_VALUE} VARCHAR(10),
                             {COL_ORPHANED} INTEGER
                             )
                         ");
