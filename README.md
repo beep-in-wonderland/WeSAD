@@ -11,7 +11,7 @@
 - [Example](#example)
   - [Astley example](#astley-example)
   - [Client API example](#client-api-example)
-  - [Architecture](#architecture)
+- [Architecture](#architecture)
   
 # About
 **WeSAD (WEbhook Status and Alerting Daemon)**, is a small tool built in Rust designed as a centralized self-hosted service for managing webhook messages from various data sources.
@@ -155,7 +155,7 @@ client.send_tags("astley", my_tag_data);
 ![astley-client-updated](docs/examples/astley-client/updated.png)
 
 
-## Architecture
+# Architecture
 The program uses an [sqlite](https://docs.rs/sqlite/latest/sqlite/) database to store all persistent webhook and tag data. On startup, it will build paths to the OS's project directories using the [directories](https://docs.rs/directories/latest/directories/index.html) crate. 
 
 A long-running `listener` thread uses [tokio](https://docs.rs/tokio/latest/tokio/) to build an asynchronous TCP webserver and listen for updates which get pushed into the [sqlite](https://docs.rs/sqlite/latest/sqlite/) database. Simultaneously, the long-lived `updater` thread also uses [tokio](https://docs.rs/tokio/latest/tokio/) for sending HTTP requests to the webhook target endpoints based on the current values in the database.
