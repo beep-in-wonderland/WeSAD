@@ -3,7 +3,7 @@ use crate::json::object;
 use crate::axum::http::StatusCode;
 use crate::thiserror::Error;
 
-pub use crate::service::listener::PlaceholderValue;
+pub use crate::service::listener::TagValue;
 
 pub struct Client {
     endpoint : String,
@@ -40,15 +40,15 @@ impl Client {
         })
     }
 
-    pub fn send_placeholders<T>(&self, webhook: T, placeholders: Vec<service::listener::PlaceholderValue>) 
+    pub fn send_tags<T>(&self, webhook: T, tags: Vec<service::listener::TagValue>) 
     where T: Display + Clone
     {
         let mut json = Client::build_json_status_template(webhook.to_string());
         json["content"] = json::array![];
 
-        for pl in placeholders {
-            let placeholder = object!{placeholder : pl.placeholder, value : pl.value};
-            json["content"].push(placeholder).unwrap();
+        for pl in tags {
+            let tag = object!{tag : pl.tag, value : pl.value};
+            json["content"].push(tag).unwrap();
         }
         println!("dump: {}", &json.dump());
 

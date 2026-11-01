@@ -7,7 +7,7 @@ use super::*;
 pub fn drop_orphaned_values(session: &Session) -> Result<(), errors::Error> {
 
     drop_orphaned_values_from_table(&session.connection, TAB_WEBHOOKS)?;
-    drop_orphaned_values_from_table(&session.connection, TAB_PLACEHOLDERS)?;
+    drop_orphaned_values_from_table(&session.connection, TAB_TAGS)?;
 
     Ok(())
 }
@@ -27,15 +27,15 @@ pub fn init_webhook_parent(session: &Session, webhook: &webhook::Status) -> Resu
 }
 
 
-/// Takes the provided placeholders Vector and either updates or inserts it into the db depending if it exists already.
-pub fn init_webhook_placeholders(session: &Session, name: &String, placeholders: &Vec<String>) -> Result<(), errors::Error> {
+/// Takes the provided tags Vector and either updates or inserts it into the db depending if it exists already.
+pub fn init_webhook_tags(session: &Session, name: &String, tags: &Vec<String>) -> Result<(), errors::Error> {
     
-    for placeholder in placeholders {
-        // If the placeholder is already in the db table, update it. Otherwise, add it.
-        if read::placeholder_by_name(&session, name, &placeholder).is_some() {
-            init_update_webhook_placeholder(&session.connection, &name, &placeholder)?;
+    for tag in tags {
+        // If the tag is already in the db table, update it. Otherwise, add it.
+        if read::tag_by_name(&session, name, &tag).is_some() {
+            init_update_webhook_tag(&session.connection, &name, &tag)?;
         } else {
-            init_add_webhook_placeholder(&session.connection, &name, &placeholder)?;
+            init_add_webhook_tag(&session.connection, &name, &tag)?;
         }
     }
     Ok(())
@@ -43,16 +43,16 @@ pub fn init_webhook_placeholders(session: &Session, name: &String, placeholders:
 }
 
 
-pub fn update_webhook_placeholder(session: &Session, name: &String, placeholder: &String, value: &String) -> Result<(), errors::Error> {
+pub fn update_webhook_tag(session: &Session, name: &String, tag: &String, value: &String) -> Result<(), errors::Error> {
 
     let query = format!("
             UPDATE 
-                {TAB_PLACEHOLDERS} 
+                {TAB_TAGS} 
             SET  
-                {COL_WEBHOOK_PLACEHOLDER_VALUE} = :value
+                {COL_WEBHOOK_TAG_VALUE} = :value
             WHERE 
                 {COL_WEBHOOK_NAME}=:name 
-                AND {COL_WEBHOOK_PLACEHOLDER}=:placeholder;
+                AND {COL_WEBHOOK_TAG}=:tag;
         ");
 
     let mut statement = session.connection.prepare(query).unwrap();
@@ -60,7 +60,7 @@ pub fn update_webhook_placeholder(session: &Session, name: &String, placeholder:
     statement.bind::<&[(_, sqlite::Value)]>(&[
         (":value", value.as_str().into()),
         (":name", name.as_str().into()),
-        (":placeholder", placeholder.as_str().into()),
+        (":tag", tag.as_str().into()),
     ])?;
 
     statement.next()?;
@@ -213,23 +213,23 @@ fn init_update_webhook_parent(connection: &Connection, webhook: &webhook::Status
 }
 
 
-/// Helper function for set_webhook_placeholder(). Updates the placeholder instead of inserting a new entry.
-fn init_update_webhook_placeholder(connection: &Connection, name: &String, placeholder: &String) -> Result<(), errors::Error> {
+/// Helper function for set_webhook_tag(). Updates the tag instead of inserting a new entry.
+fn init_update_webhook_tag(connection: &Connection, name: &String, tag: &String) -> Result<(), errors::Error> {
     let query = format!("
             UPDATE 
-                {TAB_PLACEHOLDERS} 
+                {TAB_TAGS} 
             SET  
                 {COL_ORPHANED}='0'
             WHERE 
                 {COL_WEBHOOK_NAME}=:name 
-                AND {COL_WEBHOOK_PLACEHOLDER}=:placeholder;
+                AND {COL_WEBHOOK_TAG}=:tag;
         ");
 
     let mut statement = connection.prepare(query).unwrap();
 
     statement.bind::<&[(_, sqlite::Value)]>(&[
         (":name", name.as_str().into()),
-        (":placeholder", placeholder.as_str().into()),
+        (":tag", tag.as_str().into()),
     ])?;
 
     statement.next()?;
@@ -238,17 +238,17 @@ fn init_update_webhook_placeholder(connection: &Connection, name: &String, place
 }
 
 
-/// Helper function for set_webhook_placeholder(). Inserts the placeholder as a new entry in the table.
-fn init_add_webhook_placeholder(connection: &Connection, name: &String, placeholder: &String) -> Result<(), errors::Error> {
+/// Helper function for set_webhook_tag(). Inserts the tag as a new entry in the table.
+fn init_add_webhook_tag(connection: &Connection, name: &String, tag: &String) -> Result<(), errors::Error> {
     let query = format!("INSERT INTO 
-            {TAB_PLACEHOLDERS} ({COL_WEBHOOK_NAME}, {COL_WEBHOOK_PLACEHOLDER}, {COL_WEBHOOK_PLACEHOLDER_VALUE}, {COL_ORPHANED}) 
-            VALUES (:name, :placeholder, '*empty*' , '0')");
+            {TAB_TAGS} ({COL_WEBHOOK_NAME}, {COL_WEBHOOK_TAG}, {COL_WEBHOOK_TAG_VALUE}, {COL_ORPHANED}) 
+            VALUES (:name, :tag, '*empty*' , '0')");
 
     let mut statement = connection.prepare(query).unwrap();
 
     statement.bind::<&[(_, sqlite::Value)]>(&[
         (":name", name.as_str().into()),
-        (":placeholder", placeholder.as_str().into()),
+        (":tag", tag.as_str().into()),
     ])?;
 
     statement.next()?;

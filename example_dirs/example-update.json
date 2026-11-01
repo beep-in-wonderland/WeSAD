@@ -3,15 +3,15 @@
     "update_type"    : "status",
     "content" : [
         {
-            "placeholder" : "give",
+            "tag" : "give",
             "value" : ":no_entry_sign: give you uPPPP, :arrow_up:"
         },
         {
-            "placeholder" : "let",
+            "tag" : "let",
             "value" : ":no_entry: let you down, :arrow_down:"
         },
         {
-            "placeholder" : "run",
+            "tag" : "run",
             "value" : ":man_gesturing_no: run around and desert you :person_running_facing_right:"
         }
     ]

@@ -22,9 +22,9 @@ pub const COL_ORPHANED: &str = "orphaned";
 pub const COL_MESSAGE_ID: &str = "messageId";
 pub const COL_LAST: &str = "last";
 
-pub const TAB_PLACEHOLDERS: &str = "placeholders";
-pub const COL_WEBHOOK_PLACEHOLDER: &str = "placeholder";
-pub const COL_WEBHOOK_PLACEHOLDER_VALUE: &str = "value";
+pub const TAB_TAGS: &str = "tags";
+pub const COL_WEBHOOK_TAG: &str = "tag";
+pub const COL_WEBHOOK_TAG_VALUE: &str = "value";
 
 
 pub struct Session {
