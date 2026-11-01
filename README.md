@@ -33,18 +33,23 @@ And has two primary webhook "types", mostly designed for **Discord**:
 
 WeSAD is currently designed for, and functions on, my particular Linux distribution (x86 CachyOS). Some small steps have been taken towards eventual cross-compatibility, but have not been tested. If this is something you'd like to see, please let me know!
 
-The service is designed primarily with **Discord**'s webhooks in mind, however the user-configured `.json` files actually replace the entire HTTP request body. 
+**The service is designed primarily with Discord's webhooks in mind.** Currently,
+some discord-sepcific URI flags are hard-coded into the HTTP requests, so this
+is all it can be used for for the time being. 
 
-This means in cases where you know exactly what your HTTP body should contain, you can technically use this service to send scheduled HTTP requests to various endpoints, not just webhooks, and use the tag system to replace any String data within that body. This is not *exactly* intended, but is a cute sideffect so far.
+I intend see what I can do to improve the webhook, and by extension general HTTP capabilities, of this service by moving some of the assumptions made by the code into the individual `webhook.conf` files. For example:
+- URI flags
+- Header values
+- User-specified HTTP method per-webhook
 
-That being said, currently the only supported header is `Content-Type: application/json` and is hard-coded into the service. This might change in the future.
+Though as this is a little passion project, I make no promises.
 
 # Crate
 This project contains both:
 1. The core daemonizable service, ran as a compiled binary.
 2. A minimal client API, accessed as a library within the crate.
 
-The client API was included to further minimize the code required for sending updates to the daemon from external scripts (see this [example](#client-api-example).
+The client API was included to further minimize the code required for sending updates to the daemon from external scripts (see this [example](#client-api-example)).
 
 The core service listens for updates via HTTP, so it is intended that you can still send status updates in situations where importing this crate is undesired or not feasible, *e.g.* some embedded devices, using other languages, etc...
 
@@ -52,7 +57,13 @@ The core service listens for updates via HTTP, so it is intended that you can st
 The usage pattern for WeSAD is to:
 1. Configure your webhooks in the `webhooks.d` directory.
 2. Run the service, ideally as a constant background process.
-3. Use either HTTP POST or the client API to send updates to the service.
+3. Use either HTTP POST or the client API to send updates to the service from other programs or devices.
+
+Some examples of dashboard uses:
+- Game server statuses 
+  - Player counts, server load, TPS, ...
+- Service statuses
+  - VPN health, image server status, ...
 
 ## Config
 The user provides configuration in the form of name-paired `.conf` and `.json` files in the project's `webhooks.d` directory, located in:
