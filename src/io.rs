@@ -176,7 +176,13 @@ impl ProgramPaths {
         let persist = dirs.data_dir().to_path_buf();
 
         std::fs::create_dir_all(&etc.join("webhooks.d"))?;
+        info!("Config directory: {}", &etc.to_str()
+            .expect("Should have panicked above if this was not usable."));
+
         std::fs::create_dir_all(&log)?;
+        info!("Logs directory: {}", &log.to_str()
+            .expect("Should have panicked above if this was not usable."));
+
         std::fs::create_dir_all(&persist)?;
 
         match std::fs::File::create_new(&etc.join("wesad.conf")) {
